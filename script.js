@@ -99,6 +99,7 @@ const QUESTIONS = {
 const STORAGE_KEY = "dsa-progress-v1";
 const THEME_KEY = "dsa-theme-v1";
 const DATE_STATE_KEY = "dsa-progress-dates-v1";
+const NOTES_KEY = "dsa-notes-v1";
 const CLOUD_COLLECTION = "dsaProgress";
 
 let auth = null;
@@ -121,6 +122,34 @@ function loadDateState() {
 
 function saveDateState(state) {
   localStorage.setItem(DATE_STATE_KEY, JSON.stringify(state));
+}
+
+function loadNotes() {
+  try {
+    return JSON.parse(localStorage.getItem(NOTES_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveNotes(notes) {
+  localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+}
+
+function getNote(key) {
+  const notes = loadNotes();
+  return notes[key] || "";
+}
+
+function setNote(key, text) {
+  const notes = loadNotes();
+  if (text.trim()) {
+    notes[key] = text;
+  } else {
+    delete notes[key];
+  }
+  saveNotes(notes);
+  scheduleCloudSync();
 }
 
 function setSyncStatus(text) {
@@ -154,6 +183,7 @@ async function syncToCloud() {
   const payload = {
     progress: loadState(),
     dates: loadDateState(),
+    notes: loadNotes(),
     theme: document.documentElement.getAttribute("data-theme") || "dark",
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
@@ -173,6 +203,7 @@ async function loadFromCloud(uid) {
   try {
     if (data.progress && typeof data.progress === "object") saveState(data.progress);
     if (data.dates && typeof data.dates === "object") saveDateState(data.dates);
+    if (data.notes && typeof data.notes === "object") saveNotes(data.notes);
     if (data.theme === "dark" || data.theme === "light") {
       applyTheme(data.theme);
       saveLocalTheme(data.theme);
@@ -437,8 +468,27 @@ function render() {
         scheduleCloudSync();
       });
 
+      const notesBtn = document.createElement("button");
+      notesBtn.className = "notes-btn";
+      notesBtn.textContent = "📝";
+      notesBtn.title = "Add notes";
+      notesBtn.addEventListener("click", () => {
+        const existingNote = getNote(key);
+        const newNote = prompt("Add your notes for this question:", existingNote);
+        if (newNote !== null) {
+          setNote(key, newNote);
+          notesBtn.classList.toggle("has-notes", !!newNote.trim());
+        }
+      });
+
+      const currentNote = getNote(key);
+      if (currentNote) {
+        notesBtn.classList.add("has-notes");
+      }
+
       item.appendChild(checkbox);
       item.appendChild(label);
+      item.appendChild(notesBtn);
       list.appendChild(item);
     });
 

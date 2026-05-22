@@ -299,6 +299,32 @@ details > summary::-webkit-details-marker { display: none; }
   accent-color: var(--ok);
 }
 
+.q-item label {
+  flex: 1;
+}
+
+.q-item .notes-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.q-item .notes-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.q-item .notes-btn.has-notes {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
 .q-item.done label {
   text-decoration: line-through;
   color: #86efac;
