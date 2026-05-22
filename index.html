@@ -8,8 +8,10 @@
 </head>
 <body>
   <header class="header">
-    <div class="header-actions">
-      <button id="themeToggleBtn" type="button" aria-label="Toggle theme">🌙 Dark</button>
+    <!-- Sync Status Circle - Top Right Corner -->
+    <div class="sync-indicator sync-top-right">
+      <div id="syncStatusCircle" class="sync-circle local-only" title="Sync Status"></div>
+      <span id="syncStatusLabel" class="sync-label">Local only</span>
     </div>
     <h1>DSA Progress Tracker</h1>
     <p>Track solved questions and keep progress saved automatically.</p>
@@ -28,22 +30,57 @@
 
   <!-- Main Layout -->
   <div class="layout-wrapper">
-    <main class="container">
-      <section class="card summary">
-        <div class="auth-row">
-          <div>
-            <div class="stat-label">Account</div>
-            <div class="auth-user-wrap">
-              <div id="authUser" class="auth-user">Not signed in</div>
-              <span id="adminBadge" class="admin-badge" style="display:none;">ADMIN</span>
-            </div>
+    <!-- Left Vertical Navigation Bar -->
+    <nav class="vertical-nav">
+      <button id="navHomeBtn" class="nav-btn nav-active" title="Home">🏠</button>
+      <button id="navAccountBtn" class="nav-btn" title="Account">👤</button>
+      <button id="navHeatmapBtn" class="nav-btn" title="Heatmap">🔥</button>
+      <button id="navThemeBtn" class="nav-btn" title="Toggle theme">🌙</button>
+    </nav>
+
+    <!-- Side Panel (Hidden by default) -->
+    <aside class="sidebar-panel" id="sidebarPanel">
+      <!-- Account Panel -->
+      <div class="panel-content panel-account" id="panelAccount">
+        <div class="panel-header">
+          <h3>Account</h3>
+          <button class="panel-close" id="closePanelBtn">✕</button>
+        </div>
+        <div class="panel-body">
+          <div class="auth-row-sidebar">
+            <div id="authUser" class="auth-user">Not signed in</div>
+            <span id="adminBadge" class="admin-badge" style="display:none;">ADMIN</span>
           </div>
-          <div class="auth-actions">
+          <div class="auth-actions-sidebar">
             <button id="googleLoginBtn" type="button">Sign in with Google</button>
             <button id="logoutBtn" type="button" style="display:none;">Logout</button>
           </div>
         </div>
+      </div>
 
+      <!-- Heatmap Panel -->
+      <div class="panel-content panel-heatmap" id="panelHeatmap">
+        <div class="panel-header">
+          <h3>Heatmap</h3>
+          <button class="panel-close" id="closeHeatmapBtn">✕</button>
+        </div>
+        <div class="panel-body">
+          <div id="sidebarHeatmapGrid" class="heatmap-grid"></div>
+          <div class="heatmap-legend">
+            <span>Less</span>
+            <div class="heatmap-cell level-0"></div>
+            <div class="heatmap-cell level-1"></div>
+            <div class="heatmap-cell level-2"></div>
+            <div class="heatmap-cell level-3"></div>
+            <div class="heatmap-cell level-4"></div>
+            <span>More</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="container">
+      <section class="card summary">
         <div class="summary-row">
           <strong>Total Progress</strong>
           <span id="overallText">0 / 0</span>
@@ -88,54 +125,10 @@
 
       <div id="categories"></div>
     </main>
-
-    <!-- Right Sidebar -->
-    <aside class="sidebar">
-
-            <!-- Sync Status Circle -->
-      <div class="sync-indicator">
-        <div id="syncStatusCircle" class="sync-circle local-only" title="Sync Status"></div>
-        <span id="syncStatusLabel" class="sync-label">Local only</span>
-      </div>
-
-      <!-- total qns solved -->
-      <div class="sidebar-content">
-        <div class="sidebar-section">
-          <h3>Stats</h3>
-          <div class="sidebar-stat">
-            <span>Solved Today</span>
-            <span id="sidebarSolvedToday">0</span>
-          </div>
-          <div class="sidebar-stat">
-            <span>Total Solved</span>
-            <span id="sidebarTotalSolved">0</span>
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-header">
-            <h3>Heatmap</h3>
-            <button id="sidebarHeatmapToggleBtn" type="button" class="toggle-btn">+</button>
-          </div>
-          <div id="sidebarHeatmapContent" class="heatmap-content" style="display: none;">
-            <div id="sidebarHeatmapGrid" class="heatmap-grid"></div>
-            <div class="heatmap-legend">
-              <span>Less</span>
-              <div class="heatmap-cell level-0"></div>
-              <div class="heatmap-cell level-1"></div>
-              <div class="heatmap-cell level-2"></div>
-              <div class="heatmap-cell level-3"></div>
-              <div class="heatmap-cell level-4"></div>
-              <span>More</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </aside>
   </div>
 
   <footer class="footer">
-    <small>Made by AI</small>
+    <small>Made by DSK :)</small>
   </footer>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>

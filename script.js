@@ -787,6 +787,8 @@ function levelFromCount(count, max) {
 function renderHeatmap(countsByDate) {
   const grid = document.getElementById("sidebarHeatmapGrid") || document.getElementById("heatmapGrid");
   if (!grid) return;
+  
+  // Clear existing content
   grid.innerHTML = "";
 
   const daysToShow = 84; // 12 weeks
@@ -1002,13 +1004,94 @@ function render() {
 function wireActions() {
   updateAddQuestionUI();
 
-  document.getElementById("themeToggleBtn").addEventListener("click", () => {
-    const current = document.documentElement.getAttribute("data-theme") || "dark";
-    const next = current === "dark" ? "light" : "dark";
-    applyTheme(next);
-    saveLocalTheme(next);
-    scheduleCloudSync();
-  });
+  // Vertical Navigation Setup
+  const navPanel = document.getElementById("sidebarPanel");
+  const navAccountBtn = document.getElementById("navAccountBtn");
+  const navHeatmapBtn = document.getElementById("navHeatmapBtn");
+  const navHomeBtn = document.getElementById("navHomeBtn");
+  const navThemeBtn = document.getElementById("navThemeBtn");
+  const panelAccount = document.getElementById("panelAccount");
+  const panelHeatmap = document.getElementById("panelHeatmap");
+  const closePanelBtn = document.getElementById("closePanelBtn");
+  const closeHeatmapBtn = document.getElementById("closeHeatmapBtn");
+
+  // Helper function to close panel
+  const closePanel = () => {
+    navPanel.classList.remove("open");
+    document.querySelectorAll(".panel-content").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("nav-active"));
+    navHomeBtn.classList.add("nav-active");
+  };
+
+  // Account button
+  if (navAccountBtn) {
+    navAccountBtn.addEventListener("click", () => {
+      const isOpen = navPanel.classList.contains("open") && panelAccount.classList.contains("active");
+      if (isOpen) {
+        closePanel();
+      } else {
+        navPanel.classList.add("open");
+        document.querySelectorAll(".panel-content").forEach(p => p.classList.remove("active"));
+        document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("nav-active"));
+        panelAccount.classList.add("active");
+        navAccountBtn.classList.add("nav-active");
+      }
+    });
+  }
+
+  // Heatmap button
+  if (navHeatmapBtn) {
+    navHeatmapBtn.addEventListener("click", () => {
+      const isOpen = navPanel.classList.contains("open") && panelHeatmap.classList.contains("active");
+      if (isOpen) {
+        closePanel();
+      } else {
+        navPanel.classList.add("open");
+        document.querySelectorAll(".panel-content").forEach(p => p.classList.remove("active"));
+        document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("nav-active"));
+        panelHeatmap.classList.add("active");
+        navHeatmapBtn.classList.add("nav-active");
+      }
+    });
+  }
+
+  // Home button
+  if (navHomeBtn) {
+    navHomeBtn.addEventListener("click", () => {
+      closePanel();
+    });
+  }
+
+  // Close panel buttons
+  if (closePanelBtn) {
+    closePanelBtn.addEventListener("click", closePanel);
+  }
+  if (closeHeatmapBtn) {
+    closeHeatmapBtn.addEventListener("click", closePanel);
+  }
+
+  // Theme button
+  if (navThemeBtn) {
+    navThemeBtn.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme") || "dark";
+      const next = current === "dark" ? "light" : "dark";
+      applyTheme(next);
+      saveLocalTheme(next);
+      scheduleCloudSync();
+    });
+  }
+
+  // Old theme toggle (kept for compatibility)
+  const themeToggleBtn = document.getElementById("themeToggleBtn");
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme") || "dark";
+      const next = current === "dark" ? "light" : "dark";
+      applyTheme(next);
+      saveLocalTheme(next);
+      scheduleCloudSync();
+    });
+  }
 
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (!confirm("Reset all saved progress?")) return;
