@@ -104,6 +104,7 @@ const CLOUD_COLLECTION = "dsaProgress";
 const QUESTIONS_COLLECTION = "questions";
 const DIFFICULTY_OPTIONS = ["Easy", "Medium", "Hard"];
 const LEETCODE_GRAPHQL_URLS = ["https://leetcode.com/graphql", "https://leetcode.cn/graphql"];
+const LEETCODE_FALLBACK_API = "https://alfa-leetcode-api.onrender.com/select";
 
 let auth = null;
 let db = null;
@@ -203,6 +204,15 @@ function difficultyClass(difficulty) {
   return `difficulty-${(difficulty || "Medium").toLowerCase()}`;
 }
 
+function slugToTitle(slug) {
+  if (!slug) return "";
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function parseLeetCodeSlug(link) {
   if (!link) return "";
   try {
@@ -217,8 +227,31 @@ function parseLeetCodeSlug(link) {
   }
 }
 
+async function fetchLeetCodeMetaViaPublicApi(slug) {
+  if (!slug) return { title: "", difficulty: "" };
+  try {
+    const url = `${LEETCODE_FALLBACK_API}?titleSlug=${encodeURIComponent(slug)}`;
+    const res = await fetch(url, { method: "GET" });
+    if (!res.ok) return { title: "", difficulty: "" };
+
+    const json = await res.json();
+    const title = typeof json?.questionTitle === "string"
+      ? json.questionTitle.trim()
+      : (typeof json?.title === "string" ? json.title.trim() : "");
+    const difficulty = DIFFICULTY_OPTIONS.includes(json?.difficulty) ? json.difficulty : "";
+    return { title, difficulty };
+  } catch {
+    return { title: "", difficulty: "" };
+  }
+}
+
 async function fetchLeetCodeMetaBySlug(slug) {
   if (!slug) return { title: "", difficulty: "" };
+
+  const publicApiMeta = await fetchLeetCodeMetaViaPublicApi(slug);
+  if (publicApiMeta.title || publicApiMeta.difficulty) {
+    return publicApiMeta;
+  }
 
   const body = {
     query: `query getQuestionDetail($titleSlug: String!) { question(titleSlug: $titleSlug) { title difficulty } }`,
@@ -247,7 +280,9 @@ async function fetchLeetCodeMetaBySlug(slug) {
     }
   }
 
-  return { title: "", difficulty: "" };
+  // Browser-to-LeetCode GraphQL can be blocked by CORS in some environments.
+  // Fallback title from slug so add flow still works.
+  return { title: slugToTitle(slug), difficulty: "" };
 }
 
 async function fetchLeetCodeMetaFromLink(link) {
@@ -355,6 +390,8 @@ async function addQuestionFromForm(event) {
     }
     if (lcMeta.title || lcMeta.difficulty) {
       if (status) status.textContent = `Detected LeetCode data${lcMeta.title ? `, title: ${lcMeta.title}` : ""}${lcMeta.difficulty ? `, difficulty: ${lcMeta.difficulty}` : ""}. Saving...`;
+    } else if (link && parseLeetCodeSlug(link)) {
+      if (status) status.textContent = "LeetCode auto-fetch unavailable (CORS). Saving with entered values...";
     }
 
     await db.collection(QUESTIONS_COLLECTION).add({
@@ -373,6 +410,10 @@ async function addQuestionFromForm(event) {
     if (status) status.textContent = "Question added";
   } catch (error) {
     console.error("Failed to add question:", error);
+    if (error?.code === "permission-denied") {
+      if (status) status.textContent = "Failed to add question: Firestore permission denied";
+      return;
+    }
     if (status) status.textContent = "Failed to add question";
   }
 }
@@ -448,6 +489,17 @@ function startQuestionsListener() {
     updateAddQuestionUI();
   }, (error) => {
     console.error("Questions listener error:", error);
+    // Keep app functional with default bundled questions.
+    cloudQuestions = [];
+    mergeQuestions();
+    render();
+    updateProgress();
+    const status = document.getElementById("addQuestionStatus");
+    if (error?.code === "permission-denied") {
+      if (status) status.textContent = "Failed to load cloud questions: permission denied";
+    } else {
+      if (status) status.textContent = "Failed to load cloud questions";
+    }
     updateAddQuestionUI();
   });
 }
