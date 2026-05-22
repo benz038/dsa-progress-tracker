@@ -197,6 +197,16 @@ body {
   padding: 0.7rem;
 }
 
+.heatmap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.heatmap-content {
+  transition: all 0.3s ease;
+}
+
 .heatmap-grid {
   margin-top: 0.45rem;
   display: grid;
@@ -243,6 +253,14 @@ button {
 
 button:hover { border-color: #4b5563; }
 button.danger { border-color: #7f1d1d; color: #fecaca; }
+
+.toggle-btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.9rem;
+  min-width: auto;
+  background: transparent;
+  border: none;
+}
 
 .note {
   color: var(--muted);

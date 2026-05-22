@@ -524,6 +524,16 @@ function wireActions() {
   document.getElementById("collapseAllBtn").addEventListener("click", () => {
     document.querySelectorAll("details").forEach((d) => { d.open = false; });
   });
+
+  const heatmapToggleBtn = document.getElementById("heatmapToggleBtn");
+  const heatmapContent = document.getElementById("heatmapContent");
+  if (heatmapToggleBtn && heatmapContent) {
+    heatmapToggleBtn.addEventListener("click", () => {
+      const isVisible = heatmapContent.style.display !== "none";
+      heatmapContent.style.display = isVisible ? "none" : "block";
+      heatmapToggleBtn.textContent = isVisible ? "+" : "−";
+    });
+  }
 }
 
 initTheme();
