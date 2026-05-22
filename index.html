@@ -15,63 +15,100 @@
     <p>Track solved questions and keep progress saved automatically.</p>
   </header>
 
-  <main class="container">
-    <section class="card summary">
-      <div class="auth-row">
-        <div>
-          <div class="stat-label">Account</div>
-          <div id="authUser" class="auth-user">Not signed in</div>
-        </div>
-        <div class="auth-actions">
-          <span id="syncStatus" class="sync-status">Local only</span>
-          <button id="googleLoginBtn" type="button">Sign in with Google</button>
-          <button id="logoutBtn" type="button" style="display:none;">Logout</button>
-        </div>
+  <!-- Sticky Progress Bar -->
+  <div class="sticky-progress">
+    <div class="progress-container">
+      <div class="progress-info">
+        <span class="progress-label">Overall Progress:</span>
+        <span id="stickyProgressText" class="progress-text">0 / 0</span>
       </div>
+      <div class="progress"><div id="stickyProgressBar"></div></div>
+    </div>
+  </div>
 
-      <div class="summary-row">
-        <strong>Total Progress</strong>
-        <span id="overallText">0 / 0</span>
-      </div>
-      <div class="progress"><div id="overallBar"></div></div>
-      <div class="stats">
-        <div class="stat-card">
-          <div class="stat-label">Solved today</div>
-          <div class="stat-value" id="solvedTodayText">0</div>
+  <!-- Main Layout -->
+  <div class="layout-wrapper">
+    <main class="container">
+      <section class="card summary">
+        <div class="auth-row">
+          <div>
+            <div class="stat-label">Account</div>
+            <div id="authUser" class="auth-user">Not signed in</div>
+          </div>
+          <div class="auth-actions">
+            <button id="googleLoginBtn" type="button">Sign in with Google</button>
+            <button id="logoutBtn" type="button" style="display:none;">Logout</button>
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Date-wise solved</div>
-          <div id="dateWiseList" class="date-wise-list"></div>
+
+        <div class="summary-row">
+          <strong>Total Progress</strong>
+          <span id="overallText">0 / 0</span>
         </div>
-      </div>
-      <div class="heatmap-wrap">
-        <div class="heatmap-header">
-          <div class="stat-label">Activity heatmap (last 12 weeks)</div>
-          <button id="heatmapToggleBtn" type="button" class="toggle-btn">+</button>
+        <div class="progress"><div id="overallBar"></div></div>
+        <div class="stats">
+          <div class="stat-card">
+            <div class="stat-label">Solved today</div>
+            <div class="stat-value" id="solvedTodayText">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Date-wise solved</div>
+            <div id="dateWiseList" class="date-wise-list"></div>
+          </div>
         </div>
-        <div id="heatmapContent" class="heatmap-content" style="display: none;">
-          <div id="heatmapGrid" class="heatmap-grid"></div>
-          <div class="heatmap-legend">
-            <span>Less</span>
-            <div class="heatmap-cell level-0"></div>
-            <div class="heatmap-cell level-1"></div>
-            <div class="heatmap-cell level-2"></div>
-            <div class="heatmap-cell level-3"></div>
-            <div class="heatmap-cell level-4"></div>
-            <span>More</span>
+        <div class="actions">
+          <button id="expandAllBtn" type="button">Expand All</button>
+          <button id="collapseAllBtn" type="button">Collapse All</button>
+          <button id="resetBtn" type="button" class="danger">Reset Progress</button>
+        </div>
+        <p class="note">Saved in browser local storage (persists across refreshes).</p>
+      </section>
+
+      <div id="categories"></div>
+    </main>
+
+    <!-- Right Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-content">
+        <div class="sidebar-section">
+          <h3>Stats</h3>
+          <div class="sidebar-stat">
+            <span>Solved Today</span>
+            <span id="sidebarSolvedToday">0</span>
+          </div>
+          <div class="sidebar-stat">
+            <span>Total Solved</span>
+            <span id="sidebarTotalSolved">0</span>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-header">
+            <h3>Heatmap</h3>
+            <button id="sidebarHeatmapToggleBtn" type="button" class="toggle-btn">+</button>
+          </div>
+          <div id="sidebarHeatmapContent" class="heatmap-content" style="display: none;">
+            <div id="sidebarHeatmapGrid" class="heatmap-grid"></div>
+            <div class="heatmap-legend">
+              <span>Less</span>
+              <div class="heatmap-cell level-0"></div>
+              <div class="heatmap-cell level-1"></div>
+              <div class="heatmap-cell level-2"></div>
+              <div class="heatmap-cell level-3"></div>
+              <div class="heatmap-cell level-4"></div>
+              <span>More</span>
+            </div>
           </div>
         </div>
       </div>
-      <div class="actions">
-        <button id="expandAllBtn" type="button">Expand All</button>
-        <button id="collapseAllBtn" type="button">Collapse All</button>
-        <button id="resetBtn" type="button" class="danger">Reset Progress</button>
-      </div>
-      <p class="note">Saved in browser local storage (persists across refreshes).</p>
-    </section>
 
-    <div id="categories"></div>
-  </main>
+      <!-- Sync Status Circle -->
+      <div class="sync-indicator">
+        <div id="syncStatusCircle" class="sync-circle local-only" title="Sync Status"></div>
+        <span id="syncStatusLabel" class="sync-label">Local only</span>
+      </div>
+    </aside>
+  </div>
 
   <footer class="footer">
     <small>Made by AI</small>
