@@ -29,7 +29,8 @@ jobs:
             projectId: "${{ secrets.FIREBASE_PROJECT_ID }}",
             storageBucket: "${{ secrets.FIREBASE_STORAGE_BUCKET }}",
             messagingSenderId: "${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}",
-            appId: "${{ secrets.FIREBASE_APP_ID }}"
+            appId: "${{ secrets.FIREBASE_APP_ID }}",
+            adminEmails: "${{ secrets.FIREBASE_ADMIN_EMAILS }}".split(',').map(s => s.trim()).filter(Boolean)
           };
           EOF
       

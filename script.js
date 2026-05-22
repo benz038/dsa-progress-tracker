@@ -1,4 +1,4 @@
-const QUESTIONS = {
+const DEFAULT_QUESTIONS = {
   "Arrays": [
     "Set Matrix Zeroes",
     "Pascal's Triangle I",
@@ -101,12 +101,356 @@ const THEME_KEY = "dsa-theme-v1";
 const DATE_STATE_KEY = "dsa-progress-dates-v1";
 const NOTES_KEY = "dsa-notes-v1";
 const CLOUD_COLLECTION = "dsaProgress";
+const QUESTIONS_COLLECTION = "questions";
+const DIFFICULTY_OPTIONS = ["Easy", "Medium", "Hard"];
+const LEETCODE_GRAPHQL_URLS = ["https://leetcode.com/graphql", "https://leetcode.cn/graphql"];
 
 let auth = null;
 let db = null;
 let currentUser = null;
 let isApplyingCloud = false;
 let cloudSyncTimeout = null;
+let cloudQuestions = [];
+let renderedQuestions = {};
+let questionsUnsubscribe = null;
+let isAdminUser = false;
+
+function getConfiguredAdminEmails() {
+  const emails = window.FIREBASE_CONFIG?.adminEmails;
+  if (!Array.isArray(emails)) return [];
+  return emails.map((e) => String(e || "").trim().toLowerCase()).filter(Boolean);
+}
+
+async function refreshAdminStatus(user) {
+  isAdminUser = false;
+  if (!user || !db) return;
+
+  const email = (user.email || "").toLowerCase();
+  const configuredAdmins = getConfiguredAdminEmails();
+  if (configuredAdmins.includes(email)) {
+    isAdminUser = true;
+    return;
+  }
+
+  // Optional fallback: mark user as admin with a Firestore doc at admins/{uid}
+  try {
+    const adminDoc = await db.collection("admins").doc(user.uid).get();
+    if (adminDoc.exists) {
+      isAdminUser = true;
+      return;
+    }
+  } catch {
+    // ignore fallback errors
+  }
+
+  // Optional fallback: custom auth claim
+  try {
+    const idTokenResult = await user.getIdTokenResult();
+    if (idTokenResult?.claims?.admin === true) {
+      isAdminUser = true;
+    }
+  } catch {
+    // ignore claim check errors
+  }
+}
+
+function makeQuestion(title, difficulty = "Medium", link = "", id = "") {
+  return {
+    id,
+    title,
+    difficulty: DIFFICULTY_OPTIONS.includes(difficulty) ? difficulty : "Medium",
+    link: link || ""
+  };
+}
+
+function buildDefaultQuestionMap() {
+  const map = {};
+  for (const [category, questions] of Object.entries(DEFAULT_QUESTIONS)) {
+    map[category] = questions.map((title) => makeQuestion(title));
+  }
+  return map;
+}
+
+function mergeQuestions() {
+  const merged = buildDefaultQuestionMap();
+  const seen = new Set();
+
+  for (const [category, questions] of Object.entries(merged)) {
+    questions.forEach((q) => {
+      seen.add(`${category.toLowerCase()}::${q.title.toLowerCase()}`);
+    });
+  }
+
+  cloudQuestions.forEach((q) => {
+    const category = (q.category || "General").trim() || "General";
+    const dedupeKey = `${category.toLowerCase()}::${q.title.toLowerCase()}`;
+    if (seen.has(dedupeKey)) return;
+
+    if (!merged[category]) merged[category] = [];
+    merged[category].push(makeQuestion(q.title, q.difficulty, q.link, q.id));
+    seen.add(dedupeKey);
+  });
+
+  renderedQuestions = merged;
+}
+
+function questionKey(category, question) {
+  if (question.id) return `qid__${question.id}`;
+  return normalizeKey(category, question.title);
+}
+
+function difficultyClass(difficulty) {
+  return `difficulty-${(difficulty || "Medium").toLowerCase()}`;
+}
+
+function parseLeetCodeSlug(link) {
+  if (!link) return "";
+  try {
+    const url = new URL(link);
+    if (!/leetcode\.(com|cn)$/i.test(url.hostname)) return "";
+    const parts = url.pathname.split("/").filter(Boolean);
+    const idx = parts.findIndex((p) => p.toLowerCase() === "problems");
+    if (idx === -1 || !parts[idx + 1]) return "";
+    return parts[idx + 1].toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+async function fetchLeetCodeMetaBySlug(slug) {
+  if (!slug) return { title: "", difficulty: "" };
+
+  const body = {
+    query: `query getQuestionDetail($titleSlug: String!) { question(titleSlug: $titleSlug) { title difficulty } }`,
+    variables: { titleSlug: slug }
+  };
+
+  for (const endpoint of LEETCODE_GRAPHQL_URLS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) continue;
+      const json = await res.json();
+      const question = json?.data?.question;
+      if (!question) continue;
+
+      const difficulty = DIFFICULTY_OPTIONS.includes(question.difficulty) ? question.difficulty : "";
+      const title = typeof question.title === "string" ? question.title.trim() : "";
+      if (difficulty || title) {
+        return { title, difficulty };
+      }
+    } catch {
+      // continue to next endpoint
+    }
+  }
+
+  return { title: "", difficulty: "" };
+}
+
+async function fetchLeetCodeMetaFromLink(link) {
+  const slug = parseLeetCodeSlug(link);
+  if (!slug) return { title: "", difficulty: "" };
+  return fetchLeetCodeMetaBySlug(slug);
+}
+
+function refreshCategorySuggestions() {
+  const datalist = document.getElementById("categorySuggestions");
+  if (!datalist) return;
+  datalist.innerHTML = "";
+
+  Object.keys(renderedQuestions)
+    .sort((a, b) => a.localeCompare(b))
+    .forEach((category) => {
+      const option = document.createElement("option");
+      option.value = category;
+      datalist.appendChild(option);
+    });
+}
+
+function updateAddQuestionUI() {
+  const form = document.getElementById("addQuestionForm");
+  const status = document.getElementById("addQuestionStatus");
+  const submitBtn = document.getElementById("addQuestionBtn");
+  const syncBtn = document.getElementById("syncLeetCodeBtn");
+  if (!form || !status || !submitBtn) return;
+
+  if (!firebaseConfigured()) {
+    status.textContent = "Configure Firebase to add questions";
+    submitBtn.disabled = true;
+    if (syncBtn) syncBtn.disabled = true;
+    form.style.display = "none";
+    return;
+  }
+
+  if (!currentUser) {
+    status.textContent = "Only admin can add questions. Sign in as admin.";
+    submitBtn.disabled = true;
+    if (syncBtn) syncBtn.disabled = true;
+    form.style.display = "none";
+    return;
+  }
+
+  if (!isAdminUser) {
+    status.textContent = "Only admin can add questions";
+    submitBtn.disabled = true;
+    if (syncBtn) syncBtn.disabled = true;
+    form.style.display = "none";
+    return;
+  }
+
+  form.style.display = "block";
+  status.textContent = "Admin mode: you can add questions for all users";
+  submitBtn.disabled = false;
+  if (syncBtn) syncBtn.disabled = false;
+}
+
+async function addQuestionFromForm(event) {
+  event.preventDefault();
+  if (!db || !currentUser || !isAdminUser) {
+    const status = document.getElementById("addQuestionStatus");
+    if (status) status.textContent = "Only admin can add questions";
+    return;
+  }
+
+  const titleInput = document.getElementById("qTitleInput");
+  const categoryInput = document.getElementById("qCategoryInput");
+  const difficultyInput = document.getElementById("qDifficultyInput");
+  const linkInput = document.getElementById("qLinkInput");
+  const status = document.getElementById("addQuestionStatus");
+
+  let title = (titleInput?.value || "").trim();
+  const category = (categoryInput?.value || "").trim() || "General";
+  let difficulty = difficultyInput?.value || "Medium";
+  const link = (linkInput?.value || "").trim();
+
+  if (!title) {
+    if (status) status.textContent = "Question title is required";
+    return;
+  }
+
+  if (!DIFFICULTY_OPTIONS.includes(difficulty)) {
+    if (status) status.textContent = "Invalid difficulty";
+    return;
+  }
+
+  if (link && !/^https?:\/\//i.test(link)) {
+    if (status) status.textContent = "Link must start with http:// or https://";
+    return;
+  }
+
+  try {
+    if (status) status.textContent = "Adding question...";
+
+    const lcMeta = await fetchLeetCodeMetaFromLink(link);
+    if (lcMeta.title) {
+      title = lcMeta.title;
+      if (titleInput) titleInput.value = lcMeta.title;
+    }
+    if (lcMeta.difficulty) {
+      difficulty = lcMeta.difficulty;
+      if (difficultyInput) difficultyInput.value = lcMeta.difficulty;
+    }
+    if (lcMeta.title || lcMeta.difficulty) {
+      if (status) status.textContent = `Detected LeetCode data${lcMeta.title ? `, title: ${lcMeta.title}` : ""}${lcMeta.difficulty ? `, difficulty: ${lcMeta.difficulty}` : ""}. Saving...`;
+    }
+
+    await db.collection(QUESTIONS_COLLECTION).add({
+      title,
+      category,
+      difficulty,
+      link,
+      isActive: true,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: currentUser.uid,
+      createdByEmail: currentUser.email || ""
+    });
+
+    if (titleInput) titleInput.value = "";
+    if (linkInput) linkInput.value = "";
+    if (status) status.textContent = "Question added";
+  } catch (error) {
+    console.error("Failed to add question:", error);
+    if (status) status.textContent = "Failed to add question";
+  }
+}
+
+async function syncLeetCodeDifficulties() {
+  const status = document.getElementById("addQuestionStatus");
+  if (!db || !currentUser || !isAdminUser) {
+    if (status) status.textContent = "Only admin can sync LeetCode data";
+    return;
+  }
+
+  const linkedQuestions = cloudQuestions.filter((q) => q.id && parseLeetCodeSlug(q.link));
+  if (!linkedQuestions.length) {
+    if (status) status.textContent = "No LeetCode-linked questions to sync";
+    return;
+  }
+
+  let updated = 0;
+  if (status) status.textContent = `Syncing LeetCode title and difficulty (0/${linkedQuestions.length})...`;
+
+  for (let i = 0; i < linkedQuestions.length; i += 1) {
+    const q = linkedQuestions[i];
+    const lcMeta = await fetchLeetCodeMetaFromLink(q.link);
+    const updatePayload = {};
+    if (lcMeta.difficulty && lcMeta.difficulty !== q.difficulty) {
+      updatePayload.difficulty = lcMeta.difficulty;
+    }
+    if (lcMeta.title && lcMeta.title !== q.title) {
+      updatePayload.title = lcMeta.title;
+    }
+
+    if (Object.keys(updatePayload).length) {
+      try {
+        await db.collection(QUESTIONS_COLLECTION).doc(q.id).set(updatePayload, { merge: true });
+        updated += 1;
+      } catch (error) {
+        console.error("Failed LeetCode sync update for", q.id, error);
+      }
+    }
+    if (status) status.textContent = `Syncing LeetCode title and difficulty (${i + 1}/${linkedQuestions.length})...`;
+  }
+
+  if (status) status.textContent = `LeetCode sync done. Updated ${updated} question(s)`;
+}
+
+function startQuestionsListener() {
+  if (!db) return;
+  if (questionsUnsubscribe) {
+    questionsUnsubscribe();
+    questionsUnsubscribe = null;
+  }
+
+  questionsUnsubscribe = db.collection(QUESTIONS_COLLECTION).onSnapshot((snapshot) => {
+    const items = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data() || {};
+      if (data.isActive === false) return;
+      if (!data.title || typeof data.title !== "string") return;
+
+      items.push({
+        id: doc.id,
+        title: data.title.trim(),
+        category: (data.category || "General").trim() || "General",
+        difficulty: DIFFICULTY_OPTIONS.includes(data.difficulty) ? data.difficulty : "Medium",
+        link: typeof data.link === "string" ? data.link.trim() : ""
+      });
+    });
+
+    cloudQuestions = items;
+    mergeQuestions();
+    render();
+    updateProgress();
+    updateAddQuestionUI();
+  }, (error) => {
+    console.error("Questions listener error:", error);
+    updateAddQuestionUI();
+  });
+}
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -225,28 +569,35 @@ function updateAuthUI(user) {
   const loginBtn = document.getElementById("googleLoginBtn");
   const logoutBtn = document.getElementById("logoutBtn");
   const authUser = document.getElementById("authUser");
+  const adminBadge = document.getElementById("adminBadge");
 
   if (user) {
     authUser.textContent = user.email || "Signed in";
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline-block";
+    if (adminBadge) adminBadge.style.display = isAdminUser ? "inline-flex" : "none";
   } else {
     authUser.textContent = "Not signed in";
     loginBtn.style.display = "inline-block";
     logoutBtn.style.display = "none";
+    if (adminBadge) adminBadge.style.display = "none";
     setSyncStatus("Local only");
   }
+
+  updateAddQuestionUI();
 }
 
 function initFirebaseAuth() {
   if (!firebaseConfigured()) {
     setSyncStatus("Configure Firebase");
+    updateAddQuestionUI();
     return;
   }
 
   firebase.initializeApp(window.FIREBASE_CONFIG);
   auth = firebase.auth();
   db = firebase.firestore();
+  startQuestionsListener();
 
   document.getElementById("googleLoginBtn").addEventListener("click", async () => {
     try {
@@ -263,8 +614,14 @@ function initFirebaseAuth() {
 
   auth.onAuthStateChanged(async (user) => {
     currentUser = user;
+    if (!user) {
+      isAdminUser = false;
+      updateAuthUI(user);
+      return;
+    }
+
+    await refreshAdminStatus(user);
     updateAuthUI(user);
-    if (!user) return;
 
     try {
       setSyncStatus("Loading cloud data...");
@@ -376,7 +733,8 @@ function levelFromCount(count, max) {
 }
 
 function renderHeatmap(countsByDate) {
-  const grid = document.getElementById("heatmapGrid");
+  const grid = document.getElementById("sidebarHeatmapGrid") || document.getElementById("heatmapGrid");
+  if (!grid) return;
   grid.innerHTML = "";
 
   const daysToShow = 84; // 12 weeks
@@ -431,19 +789,21 @@ function updateProgress() {
   const total = allCheckboxes.length;
   const done = allCheckboxes.filter((x) => x.checked).length;
 
-  document.getElementById("overallText").textContent = `${done} / ${total}`;
-  document.getElementById("overallBar").style.width = `${(done / Math.max(total, 1)) * 100}%`;
+  const overallText = document.getElementById("overallText");
+  const overallBar = document.getElementById("overallBar");
+  if (overallText) overallText.textContent = `${done} / ${total}`;
+  if (overallBar) overallBar.style.width = `${(done / Math.max(total, 1)) * 100}%`;
 
   updateStickyProgress(total, done);
 
-  for (const category of Object.keys(QUESTIONS)) {
+  for (const category of Object.keys(renderedQuestions)) {
     const catBoxes = [...document.querySelectorAll(`input[data-category="${CSS.escape(category)}"]`)];
     const catDone = catBoxes.filter((x) => x.checked).length;
     const textEl = document.querySelector(`[data-category-progress="${CSS.escape(category)}"]`);
     const barEl = document.querySelector(`[data-category-bar="${CSS.escape(category)}"]`);
 
-    textEl.textContent = `${catDone} / ${catBoxes.length}`;
-    barEl.style.width = `${(catDone / Math.max(catBoxes.length, 1)) * 100}%`;
+    if (textEl) textEl.textContent = `${catDone} / ${catBoxes.length}`;
+    if (barEl) barEl.style.width = `${(catDone / Math.max(catBoxes.length, 1)) * 100}%`;
   }
 
   const countsByDate = {};
@@ -454,9 +814,18 @@ function updateProgress() {
   });
 
   const todayCount = countsByDate[todayISO()] || 0;
-  document.getElementById("solvedTodayText").textContent = String(todayCount);
+  const solvedTodayText = document.getElementById("solvedTodayText");
+  const sidebarSolvedToday = document.getElementById("sidebarSolvedToday");
+  const sidebarTotalSolved = document.getElementById("sidebarTotalSolved");
+  if (solvedTodayText) solvedTodayText.textContent = String(todayCount);
+  if (sidebarSolvedToday) sidebarSolvedToday.textContent = String(todayCount);
+  if (sidebarTotalSolved) sidebarTotalSolved.textContent = String(done);
 
   const dateWiseList = document.getElementById("dateWiseList");
+  if (!dateWiseList) {
+    renderHeatmap(countsByDate);
+    return;
+  }
   dateWiseList.innerHTML = "";
   const sortedDates = Object.keys(countsByDate).sort((a, b) => (a < b ? 1 : -1));
 
@@ -480,8 +849,9 @@ function updateProgress() {
 function render() {
   const root = document.getElementById("categories");
   const state = loadState();
+  root.innerHTML = "";
 
-  for (const [category, questions] of Object.entries(QUESTIONS)) {
+  for (const [category, questions] of Object.entries(renderedQuestions)) {
     const details = document.createElement("details");
     details.className = "card";
     details.open = true;
@@ -499,7 +869,7 @@ function render() {
     list.className = "q-list";
 
     questions.forEach((question) => {
-      const key = normalizeKey(category, question);
+      const key = questionKey(category, question);
       const checked = !!state[key];
 
       const item = document.createElement("div");
@@ -512,7 +882,20 @@ function render() {
       checkbox.dataset.category = category;
 
       const label = document.createElement("label");
-      label.textContent = question;
+      if (question.link) {
+        const anchor = document.createElement("a");
+        anchor.href = question.link;
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        anchor.textContent = question.title;
+        label.appendChild(anchor);
+      } else {
+        label.textContent = question.title;
+      }
+
+      const difficultyTag = document.createElement("span");
+      difficultyTag.className = `difficulty-badge ${difficultyClass(question.difficulty)}`;
+      difficultyTag.textContent = question.difficulty || "Medium";
 
       checkbox.addEventListener("change", () => {
         const current = loadState();
@@ -550,6 +933,7 @@ function render() {
 
       item.appendChild(checkbox);
       item.appendChild(label);
+      item.appendChild(difficultyTag);
       item.appendChild(notesBtn);
       list.appendChild(item);
     });
@@ -559,10 +943,13 @@ function render() {
     root.appendChild(details);
   }
 
+  refreshCategorySuggestions();
   updateProgress();
 }
 
 function wireActions() {
+  updateAddQuestionUI();
+
   document.getElementById("themeToggleBtn").addEventListener("click", () => {
     const current = document.documentElement.getAttribute("data-theme") || "dark";
     const next = current === "dark" ? "light" : "dark";
@@ -587,8 +974,8 @@ function wireActions() {
     document.querySelectorAll("details").forEach((d) => { d.open = false; });
   });
 
-  const heatmapToggleBtn = document.getElementById("heatmapToggleBtn");
-  const heatmapContent = document.getElementById("heatmapContent");
+  const heatmapToggleBtn = document.getElementById("sidebarHeatmapToggleBtn") || document.getElementById("heatmapToggleBtn");
+  const heatmapContent = document.getElementById("sidebarHeatmapContent") || document.getElementById("heatmapContent");
   if (heatmapToggleBtn && heatmapContent) {
     heatmapToggleBtn.addEventListener("click", () => {
       const isVisible = heatmapContent.style.display !== "none";
@@ -596,8 +983,26 @@ function wireActions() {
       heatmapToggleBtn.textContent = isVisible ? "+" : "−";
     });
   }
+
+  const addQuestionForm = document.getElementById("addQuestionForm");
+  if (addQuestionForm) {
+    addQuestionForm.addEventListener("submit", addQuestionFromForm);
+  }
+
+  const syncBtn = document.getElementById("syncLeetCodeBtn");
+  if (syncBtn) {
+    syncBtn.addEventListener("click", async () => {
+      syncBtn.disabled = true;
+      try {
+        await syncLeetCodeDifficulties();
+      } finally {
+        syncBtn.disabled = false;
+      }
+    });
+  }
 }
 
+mergeQuestions();
 initTheme();
 render();
 wireActions();

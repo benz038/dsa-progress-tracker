@@ -33,7 +33,10 @@
         <div class="auth-row">
           <div>
             <div class="stat-label">Account</div>
-            <div id="authUser" class="auth-user">Not signed in</div>
+            <div class="auth-user-wrap">
+              <div id="authUser" class="auth-user">Not signed in</div>
+              <span id="adminBadge" class="admin-badge" style="display:none;">ADMIN</span>
+            </div>
           </div>
           <div class="auth-actions">
             <button id="googleLoginBtn" type="button">Sign in with Google</button>
@@ -61,6 +64,25 @@
           <button id="collapseAllBtn" type="button">Collapse All</button>
           <button id="resetBtn" type="button" class="danger">Reset Progress</button>
         </div>
+        <form id="addQuestionForm" class="add-question-form">
+          <div class="form-title">Add Question</div>
+          <div class="form-grid">
+            <input id="qTitleInput" type="text" placeholder="Question title" required />
+            <input id="qCategoryInput" type="text" placeholder="Category" list="categorySuggestions" required />
+            <datalist id="categorySuggestions"></datalist>
+            <select id="qDifficultyInput" required>
+              <option value="Easy">Easy</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+            <input id="qLinkInput" type="url" placeholder="https://problem-link" />
+          </div>
+          <div class="form-actions">
+            <button id="addQuestionBtn" type="submit">Add Question</button>
+            <button id="syncLeetCodeBtn" type="button">Sync LeetCode Title + Difficulty</button>
+            <span id="addQuestionStatus" class="form-status">Sign in to add questions</span>
+          </div>
+        </form>
         <p class="note">Saved in browser local storage (persists across refreshes).</p>
       </section>
 

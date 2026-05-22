@@ -1,72 +1,33 @@
-# DSA Progress Tracker (GitHub Pages)
+# DSA Progress Tracker
 
-Simple static website to track DSA question progress with persistent checkbox state.
+## How to use
 
-## Features
-- Category-wise checklist
-- Overall progress bar
-- Category progress bars
-- Solved today counter
-- Date-wise solved tracking history
-- Activity heatmap (last 12 weeks)
-- Google login
-- Cross-device sync using Firestore
-- Progress auto-saved in browser `localStorage`
-- Reset / Expand / Collapse controls
+1. Open the site.
+2. Sign in with Google.
+3. Check/uncheck questions to track progress.
+4. Add notes with the 📝 button.
+5. Use **Expand All**, **Collapse All**, and **Reset Progress** as needed.
+6. Use **Light/Dark** toggle from the top.
 
-## Deploy on GitHub Pages
-1. Create a new GitHub repository (for example: `dsa-progress-tracker`).
-2. Copy these files to repo root:
-   - `index.html`
-   - `style.css`
-   - `script.js`
-3. Push to `main` branch.
-4. In GitHub, go to **Settings → Pages**.
-5. Under **Build and deployment**, choose:
-   - **Source**: Deploy from a branch
-   - **Branch**: `main` and folder `/ (root)`
-6. Save. GitHub will provide a URL like:
-   - `https://<your-username>.github.io/dsa-progress-tracker/`
+## Admin usage (add questions)
 
-## Cleaner URL setup (recommended)
-If you want the cleaner root URL:
-- `https://<your-username>.github.io/`
+Only admin users can add/sync questions.
 
-Use a **user site** repository name exactly:
-- `<your-username>.github.io`
+1. Sign in with an admin account.
+2. Use **Add Question** form:
+   - Question title
+   - Category
+   - Difficulty
+   - LeetCode/Problem link (optional)
+3. Click **Add Question**.
+4. To refresh existing LeetCode question data, click **Sync LeetCode Title + Difficulty**.
 
-Then:
-1. Create repository named exactly `<your-username>.github.io`.
-2. Put `index.html`, `style.css`, `script.js` in repository root.
-3. Push to `main`.
-4. In **Settings → Pages**, use `main` + `/ (root)`.
+## Admin emails secret (example)
 
-Your tracker will open directly at:
-- `https://<your-username>.github.io/`
+Set GitHub secret `FIREBASE_ADMIN_EMAILS` as comma-separated emails.
 
-## Notes
-- Saved state is browser-specific (localStorage).
-- If you clear browser site data, progress resets.
-
-## Enable Google Login + Cloud Sync
-1. Create a Firebase project.
-2. In Firebase Console:
-    - Enable **Authentication → Google** provider.
-    - Enable **Firestore Database** (production or test mode).
-3. Add GitHub Pages domain in Auth authorized domains:
-    - `<your-username>.github.io`
-4. Open [DC-apr20/leetcoder/firebase-config.js](DC-apr20/leetcoder/firebase-config.js) and fill your Firebase web config.
-5. Deploy/push again.
-
-Recommended Firestore rule (user can read/write only own doc):
+Example:
 
 ```
-rules_version = '2';
-service cloud.firestore {
-   match /databases/{database}/documents {
-      match /dsaProgress/{userId} {
-         allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-   }
-}
+admin1@company.com,admin2@company.com,benz038@gmail.com
 ```

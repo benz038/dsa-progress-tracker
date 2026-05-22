@@ -247,6 +247,23 @@ body {
   font-weight: 600;
 }
 
+.auth-user-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.admin-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #1f2937;
+  background: #fbbf24;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+}
+
 .auth-actions {
   display: flex;
   align-items: center;
@@ -282,6 +299,49 @@ body {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.8rem;
+}
+
+.add-question-form {
+  margin-top: 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--card-2);
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.form-title {
+  font-size: 0.95rem;
+  font-weight: 650;
+  margin-bottom: 0.55rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.5rem;
+}
+
+.add-question-form input,
+.add-question-form select {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+}
+
+.form-actions {
+  margin-top: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.form-status {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .stats {
@@ -462,6 +522,40 @@ details > summary::-webkit-details-marker { display: none; }
 
 .q-item label {
   flex: 1;
+}
+
+.q-item label a {
+  color: inherit;
+}
+
+.q-item label a:hover {
+  color: var(--accent);
+}
+
+.difficulty-badge {
+  font-size: 0.72rem;
+  padding: 0.16rem 0.42rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 650;
+}
+
+.difficulty-easy {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.difficulty-medium {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.difficulty-hard {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 .q-item .notes-btn {
