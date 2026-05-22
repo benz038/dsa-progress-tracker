@@ -155,6 +155,8 @@ function setNote(key, text) {
 function setSyncStatus(text) {
   const el = document.getElementById("syncStatus");
   if (el) el.textContent = text;
+  // also update sidebar indicator
+  setSyncIndicator(text);
 }
 
 function firebaseConfigured() {
@@ -397,6 +399,31 @@ function renderHeatmap(countsByDate) {
   }
 }
 
+function updateStickyProgress(total, done) {
+  const textEl = document.getElementById('stickyProgressText');
+  const barEl = document.getElementById('stickyProgressBar');
+  if (textEl) textEl.textContent = `${done} / ${total}`;
+  if (barEl) {
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    barEl.style.width = pct + '%';
+  }
+}
+
+function setSyncIndicator(status) {
+  const circle = document.getElementById('syncStatusCircle');
+  const label = document.getElementById('syncStatusLabel');
+  if (!circle || !label) return;
+  circle.classList.remove('local-only','syncing','synced');
+  if (status === 'Local only' || status === 'Configure Firebase') {
+    circle.classList.add('local-only');
+  } else if (status === 'Syncing...' || status === 'Loading cloud data...') {
+    circle.classList.add('syncing');
+  } else if (status === 'Synced') {
+    circle.classList.add('synced');
+  }
+  label.textContent = status;
+}
+
 function updateProgress() {
   const solvedState = loadState();
   const dateState = loadDateState();
@@ -406,6 +433,8 @@ function updateProgress() {
 
   document.getElementById("overallText").textContent = `${done} / ${total}`;
   document.getElementById("overallBar").style.width = `${(done / Math.max(total, 1)) * 100}%`;
+
+  updateStickyProgress(total, done);
 
   for (const category of Object.keys(QUESTIONS)) {
     const catBoxes = [...document.querySelectorAll(`input[data-category="${CSS.escape(category)}"]`)];
