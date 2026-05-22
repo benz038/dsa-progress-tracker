@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DSA Progress Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-actions">
+      <button id="themeToggleBtn" type="button" aria-label="Toggle theme">🌙 Dark</button>
+    </div>
+    <h1>DSA Progress Tracker</h1>
+    <p>Track solved questions and keep progress saved automatically.</p>
+  </header>
+
+  <main class="container">
+    <section class="card summary">
+      <div class="auth-row">
+        <div>
+          <div class="stat-label">Account</div>
+          <div id="authUser" class="auth-user">Not signed in</div>
+        </div>
+        <div class="auth-actions">
+          <span id="syncStatus" class="sync-status">Local only</span>
+          <button id="googleLoginBtn" type="button">Sign in with Google</button>
+          <button id="logoutBtn" type="button" style="display:none;">Logout</button>
+        </div>
+      </div>
+
+      <div class="summary-row">
+        <strong>Total Progress</strong>
+        <span id="overallText">0 / 0</span>
+      </div>
+      <div class="progress"><div id="overallBar"></div></div>
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-label">Solved today</div>
+          <div class="stat-value" id="solvedTodayText">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Date-wise solved</div>
+          <div id="dateWiseList" class="date-wise-list"></div>
+        </div>
+      </div>
+      <div class="heatmap-wrap">
+        <div class="stat-label">Activity heatmap (last 12 weeks)</div>
+        <div id="heatmapGrid" class="heatmap-grid"></div>
+        <div class="heatmap-legend">
+          <span>Less</span>
+          <div class="heatmap-cell level-0"></div>
+          <div class="heatmap-cell level-1"></div>
+          <div class="heatmap-cell level-2"></div>
+          <div class="heatmap-cell level-3"></div>
+          <div class="heatmap-cell level-4"></div>
+          <span>More</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="expandAllBtn" type="button">Expand All</button>
+        <button id="collapseAllBtn" type="button">Collapse All</button>
+        <button id="resetBtn" type="button" class="danger">Reset Progress</button>
+      </div>
+      <p class="note">Saved in browser local storage (persists across refreshes).</p>
+    </section>
+
+    <div id="categories"></div>
+  </main>
+
+  <footer class="footer">
+    <small>Made for GitHub Pages • Static site</small>
+  </footer>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
