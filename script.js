@@ -192,24 +192,30 @@ async function syncToCloud() {
 }
 
 async function loadFromCloud(uid) {
-  const doc = await db.collection(CLOUD_COLLECTION).doc(uid).get();
-  if (!doc.exists) {
-    await syncToCloud();
-    return;
-  }
-
-  const data = doc.data() || {};
-  isApplyingCloud = true;
   try {
-    if (data.progress && typeof data.progress === "object") saveState(data.progress);
-    if (data.dates && typeof data.dates === "object") saveDateState(data.dates);
-    if (data.notes && typeof data.notes === "object") saveNotes(data.notes);
-    if (data.theme === "dark" || data.theme === "light") {
-      applyTheme(data.theme);
-      saveLocalTheme(data.theme);
+    const doc = await db.collection(CLOUD_COLLECTION).doc(uid).get();
+    if (!doc.exists) {
+      // First time - sync local data to cloud
+      await syncToCloud();
+      return;
     }
-  } finally {
-    isApplyingCloud = false;
+
+    const data = doc.data() || {};
+    isApplyingCloud = true;
+    try {
+      if (data.progress && typeof data.progress === "object") saveState(data.progress);
+      if (data.dates && typeof data.dates === "object") saveDateState(data.dates);
+      if (data.notes && typeof data.notes === "object") saveNotes(data.notes);
+      if (data.theme === "dark" || data.theme === "light") {
+        applyTheme(data.theme);
+        saveLocalTheme(data.theme);
+      }
+    } finally {
+      isApplyingCloud = false;
+    }
+  } catch (error) {
+    console.error("Error loading from cloud:", error);
+    throw error;
   }
 }
 
@@ -284,9 +290,15 @@ function initFirebaseAuth() {
         } finally {
           isApplyingCloud = false;
         }
+      }, (error) => {
+        console.error("Snapshot listener error:", error);
       });
-    } catch {
-      setSyncStatus("Cloud load failed");
+    } catch (error) {
+      console.error("Auth state change error:", error);
+      // Fall back to local storage even if cloud load fails
+      setSyncStatus("Using local data (cloud unavailable)");
+      updateProgress();
+      reapplyCheckboxesFromState();
     }
   });
 }
