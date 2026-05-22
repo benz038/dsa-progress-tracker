@@ -264,6 +264,27 @@ function initFirebaseAuth() {
       updateProgress();
       reapplyCheckboxesFromState();
       setSyncStatus("Synced");
+      
+      // Real-time listener for cross-device sync
+      db.collection(CLOUD_COLLECTION).doc(user.uid).onSnapshot((doc) => {
+        if (!doc.exists) return;
+        const data = doc.data() || {};
+        isApplyingCloud = true;
+        try {
+          if (data.progress && typeof data.progress === "object") saveState(data.progress);
+          if (data.dates && typeof data.dates === "object") saveDateState(data.dates);
+          if (data.notes && typeof data.notes === "object") saveNotes(data.notes);
+          if (data.theme === "dark" || data.theme === "light") {
+            applyTheme(data.theme);
+            saveLocalTheme(data.theme);
+          }
+          updateProgress();
+          reapplyCheckboxesFromState();
+          setSyncStatus("Synced");
+        } finally {
+          isApplyingCloud = false;
+        }
+      });
     } catch {
       setSyncStatus("Cloud load failed");
     }
