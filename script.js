@@ -100,6 +100,9 @@ const STORAGE_KEY = "dsa-progress-v1";
 const THEME_KEY = "dsa-theme-v1";
 const DATE_STATE_KEY = "dsa-progress-dates-v1";
 const NOTES_KEY = "dsa-notes-v1";
+const DELETED_QUESTIONS_KEY = "dsa-deleted-questions-v1";
+const LOCAL_CUSTOM_QUESTIONS_KEY = "dsa-local-custom-questions-v1";
+const LOCAL_TEST_MODE_KEY = "dsa-local-test-mode-v1";
 const CLOUD_COLLECTION = "dsaProgress";
 const QUESTIONS_COLLECTION = "questions";
 const DIFFICULTY_OPTIONS = ["Easy", "Medium", "Hard"];
@@ -115,6 +118,27 @@ let cloudQuestions = [];
 let renderedQuestions = {};
 let questionsUnsubscribe = null;
 let isAdminUser = false;
+let sidebarStatusTimeout = null;
+let lastDeletedQuestion = null;
+let isLocalTestMode = false;
+let topToastTimeout = null;
+
+function loadLocalTestMode() {
+  const saved = localStorage.getItem(LOCAL_TEST_MODE_KEY);
+  if (saved === null) {
+    localStorage.setItem(LOCAL_TEST_MODE_KEY, "1");
+    return true;
+  }
+  return saved === "1";
+}
+
+function canAdminManage() {
+  return isAdminUser || isLocalTestMode;
+}
+
+function canUseCloudQuestions() {
+  return !!(db && currentUser);
+}
 
 function getConfiguredAdminEmails() {
   const emails = window.FIREBASE_CONFIG?.adminEmails;
@@ -165,9 +189,12 @@ function makeQuestion(title, difficulty = "Medium", link = "", id = "") {
 }
 
 function buildDefaultQuestionMap() {
+  const deletedQuestions = loadDeletedQuestions();
   const map = {};
   for (const [category, questions] of Object.entries(DEFAULT_QUESTIONS)) {
-    map[category] = questions.map((title) => makeQuestion(title));
+    map[category] = questions
+      .filter((title) => !deletedQuestions[normalizeKey(category, title)])
+      .map((title) => makeQuestion(title));
   }
   return map;
 }
@@ -189,6 +216,17 @@ function mergeQuestions() {
 
     if (!merged[category]) merged[category] = [];
     merged[category].push(makeQuestion(q.title, q.difficulty, q.link, q.id));
+    seen.add(dedupeKey);
+  });
+
+  const localCustomQuestions = loadLocalCustomQuestions();
+  localCustomQuestions.forEach((q) => {
+    const category = (q.category || "General").trim() || "General";
+    const dedupeKey = `${category.toLowerCase()}::${(q.title || "").toLowerCase()}`;
+    if (!q.title || seen.has(dedupeKey)) return;
+
+    if (!merged[category]) merged[category] = [];
+    merged[category].push(makeQuestion(q.title, q.difficulty, q.link, q.id || ""));
     seen.add(dedupeKey);
   });
 
@@ -293,16 +331,70 @@ async function fetchLeetCodeMetaFromLink(link) {
 
 function refreshCategorySuggestions() {
   const datalist = document.getElementById("categorySuggestions");
-  if (!datalist) return;
-  datalist.innerHTML = "";
+  const categories = Object.keys(renderedQuestions).sort((a, b) => a.localeCompare(b));
 
-  Object.keys(renderedQuestions)
-    .sort((a, b) => a.localeCompare(b))
-    .forEach((category) => {
+  if (datalist) {
+    datalist.innerHTML = "";
+    categories.forEach((category) => {
       const option = document.createElement("option");
       option.value = category;
       datalist.appendChild(option);
     });
+  }
+}
+
+function resolveCategoryName(rawCategory) {
+  const typed = String(rawCategory || "").trim();
+  if (!typed) return "";
+
+  const categories = Object.keys(renderedQuestions);
+  const exact = categories.find((name) => name === typed);
+  if (exact) return exact;
+
+  const normalizedTyped = typed.toLowerCase();
+  const caseInsensitive = categories.find((name) => name.toLowerCase() === normalizedTyped);
+  if (caseInsensitive) return caseInsensitive;
+
+  return typed;
+}
+
+function showSidebarActionStatus(message, type = "info") {
+  const status = document.getElementById("sidebarActionStatus");
+  if (!status) return;
+
+  status.textContent = message;
+  status.classList.remove("status-success", "status-error", "status-info", "show");
+  status.classList.add(`status-${type}`, "show");
+
+  if (sidebarStatusTimeout) clearTimeout(sidebarStatusTimeout);
+  sidebarStatusTimeout = setTimeout(() => {
+    status.classList.remove("show");
+  }, 2400);
+}
+
+function showTopToast(message, type = "success") {
+  const toast = document.getElementById("topToast");
+  if (!toast) return;
+
+  toast.textContent = message;
+  toast.classList.remove("toast-success", "toast-error", "toast-info", "show");
+  toast.classList.add(`toast-${type}`, "show");
+
+  if (topToastTimeout) clearTimeout(topToastTimeout);
+  topToastTimeout = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 2200);
+}
+
+function updateUndoButtonState() {
+  const undoBtn = document.getElementById("sidebarUndoDeleteBtn");
+  if (!undoBtn) return;
+  undoBtn.disabled = !lastDeletedQuestion;
+}
+
+function rememberLastDeletedQuestion(payload) {
+  lastDeletedQuestion = payload;
+  updateUndoButtonState();
 }
 
 function updateAddQuestionUI() {
@@ -310,41 +402,88 @@ function updateAddQuestionUI() {
   const status = document.getElementById("addQuestionStatus");
   const submitBtn = document.getElementById("addQuestionBtn");
   const syncBtn = document.getElementById("syncLeetCodeBtn");
-  if (!form || !status || !submitBtn) return;
+  const sidebarAddBtn = document.getElementById("sidebarAddQuestionBtn");
+  const sidebarDeleteBtn = document.getElementById("sidebarDeleteQuestionBtn");
+  const navAddBtn = document.getElementById("navAddBtn");
+  const navDeleteBtn = document.getElementById("navDeleteBtn");
+  const hasMainAddSection = !!(form && status && submitBtn);
 
   if (!firebaseConfigured()) {
-    status.textContent = "Configure Firebase to add questions";
-    submitBtn.disabled = true;
-    if (syncBtn) syncBtn.disabled = true;
-    form.style.display = "none";
+    if (isLocalTestMode) {
+      if (hasMainAddSection) {
+        form.style.display = "block";
+        status.textContent = "Local test mode: add/delete enabled without Firebase";
+        submitBtn.disabled = false;
+      }
+      if (syncBtn) syncBtn.disabled = true;
+      if (sidebarAddBtn) sidebarAddBtn.disabled = false;
+      if (sidebarDeleteBtn) sidebarDeleteBtn.disabled = false;
+      if (navAddBtn) navAddBtn.style.display = "inline-flex";
+      if (navDeleteBtn) navDeleteBtn.style.display = "inline-flex";
+    } else {
+      if (hasMainAddSection) {
+        status.textContent = "Configure Firebase to add questions";
+        submitBtn.disabled = true;
+        form.style.display = "none";
+      }
+      if (syncBtn) syncBtn.disabled = true;
+      if (sidebarAddBtn) sidebarAddBtn.disabled = true;
+      if (sidebarDeleteBtn) sidebarDeleteBtn.disabled = true;
+      if (navAddBtn) navAddBtn.style.display = "none";
+      if (navDeleteBtn) navDeleteBtn.style.display = "none";
+    }
+    updateUndoButtonState();
     return;
   }
 
-  if (!currentUser) {
-    status.textContent = "Only admin can add questions. Sign in as admin.";
-    submitBtn.disabled = true;
+  if (!currentUser && !isLocalTestMode) {
+    if (hasMainAddSection) {
+      status.textContent = "Only admin can add questions. Sign in as admin.";
+      submitBtn.disabled = true;
+      form.style.display = "none";
+    }
     if (syncBtn) syncBtn.disabled = true;
-    form.style.display = "none";
+    if (sidebarAddBtn) sidebarAddBtn.disabled = true;
+    if (sidebarDeleteBtn) sidebarDeleteBtn.disabled = true;
+    if (navAddBtn) navAddBtn.style.display = "none";
+    if (navDeleteBtn) navDeleteBtn.style.display = "none";
+    updateUndoButtonState();
     return;
   }
 
-  if (!isAdminUser) {
-    status.textContent = "Only admin can add questions";
-    submitBtn.disabled = true;
+  if (!canAdminManage()) {
+    if (hasMainAddSection) {
+      status.textContent = "Only admin can add questions";
+      submitBtn.disabled = true;
+      form.style.display = "none";
+    }
     if (syncBtn) syncBtn.disabled = true;
-    form.style.display = "none";
+    if (sidebarAddBtn) sidebarAddBtn.disabled = true;
+    if (sidebarDeleteBtn) sidebarDeleteBtn.disabled = true;
+    if (navAddBtn) navAddBtn.style.display = "none";
+    if (navDeleteBtn) navDeleteBtn.style.display = "none";
+    updateUndoButtonState();
     return;
   }
 
-  form.style.display = "block";
-  status.textContent = "Admin mode: you can add questions for all users";
-  submitBtn.disabled = false;
+  if (hasMainAddSection) {
+    form.style.display = "block";
+    status.textContent = isLocalTestMode && !isAdminUser
+      ? "Local test mode: add/delete enabled"
+      : "Admin mode: you can add questions for all users";
+    submitBtn.disabled = false;
+  }
   if (syncBtn) syncBtn.disabled = false;
+  if (sidebarAddBtn) sidebarAddBtn.disabled = false;
+  if (sidebarDeleteBtn) sidebarDeleteBtn.disabled = false;
+  if (navAddBtn) navAddBtn.style.display = "inline-flex";
+  if (navDeleteBtn) navDeleteBtn.style.display = "inline-flex";
+  updateUndoButtonState();
 }
 
 async function addQuestionFromForm(event) {
   event.preventDefault();
-  if (!db || !currentUser || !isAdminUser) {
+  if (!canAdminManage()) {
     const status = document.getElementById("addQuestionStatus");
     if (status) status.textContent = "Only admin can add questions";
     return;
@@ -394,20 +533,31 @@ async function addQuestionFromForm(event) {
       if (status) status.textContent = "LeetCode auto-fetch unavailable (CORS). Saving with entered values...";
     }
 
-    await db.collection(QUESTIONS_COLLECTION).add({
-      title,
-      category,
-      difficulty,
-      link,
-      isActive: true,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      createdBy: currentUser.uid,
-      createdByEmail: currentUser.email || ""
-    });
+    if (canUseCloudQuestions()) {
+      await db.collection(QUESTIONS_COLLECTION).add({
+        title,
+        category,
+        difficulty,
+        link,
+        isActive: true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdBy: currentUser.uid,
+        createdByEmail: currentUser.email || ""
+      });
+    } else {
+      addLocalCustomQuestion({ title, category, difficulty, link });
+      mergeQuestions();
+      render();
+    }
 
     if (titleInput) titleInput.value = "";
     if (linkInput) linkInput.value = "";
-    if (status) status.textContent = "Question added";
+    if (status) {
+      status.textContent = canUseCloudQuestions()
+        ? "Question added"
+        : "Question added (local test mode)";
+    }
+    showTopToast("Question added successfully", "success");
   } catch (error) {
     console.error("Failed to add question:", error);
     if (error?.code === "permission-denied") {
@@ -415,21 +565,289 @@ async function addQuestionFromForm(event) {
       return;
     }
     if (status) status.textContent = "Failed to add question";
+    showTopToast("Failed to add question", "error");
   }
 }
 
-async function deleteQuestion(questionId, questionTitle) {
+async function addQuestionFromSidebar(event) {
+  event.preventDefault();
+  if (!canAdminManage()) {
+    showSidebarActionStatus("Only admin can add questions", "error");
+    return;
+  }
+
+  const titleInput = document.getElementById("sidebarQTitleInput");
+  const categoryInput = document.getElementById("sidebarQCategoryInput");
+  const difficultyInput = document.getElementById("sidebarQDifficultyInput");
+  const linkInput = document.getElementById("sidebarQLinkInput");
+
+  let title = (titleInput?.value || "").trim();
+  const category = (categoryInput?.value || "").trim() || "General";
+  let difficulty = difficultyInput?.value || "Medium";
+  const link = (linkInput?.value || "").trim();
+
+  if (!title) {
+    showSidebarActionStatus("Question title is required", "error");
+    return;
+  }
+
+  if (!DIFFICULTY_OPTIONS.includes(difficulty)) {
+    showSidebarActionStatus("Invalid difficulty", "error");
+    return;
+  }
+
+  if (link && !/^https?:\/\//i.test(link)) {
+    showSidebarActionStatus("Link must start with http:// or https://", "error");
+    return;
+  }
+
+  try {
+    showSidebarActionStatus("Adding question...", "info");
+
+    const lcMeta = await fetchLeetCodeMetaFromLink(link);
+    if (lcMeta.title) title = lcMeta.title;
+    if (lcMeta.difficulty) difficulty = lcMeta.difficulty;
+
+    if (canUseCloudQuestions()) {
+      await db.collection(QUESTIONS_COLLECTION).add({
+        title,
+        category,
+        difficulty,
+        link,
+        isActive: true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdBy: currentUser.uid,
+        createdByEmail: currentUser.email || ""
+      });
+    } else {
+      addLocalCustomQuestion({ title, category, difficulty, link });
+      mergeQuestions();
+      render();
+    }
+
+    if (titleInput) titleInput.value = "";
+    if (linkInput) linkInput.value = "";
+    if (difficultyInput) difficultyInput.value = "Medium";
+
+    showSidebarActionStatus(
+      canUseCloudQuestions() ? "Question added successfully" : "Question added locally",
+      "success"
+    );
+    showTopToast("Question added successfully", "success");
+  } catch (error) {
+    console.error("Failed to add question from sidebar:", error);
+    showSidebarActionStatus("Failed to add question", "error");
+    showTopToast("Failed to add question", "error");
+  }
+}
+
+async function deleteQuestion(questionId, questionTitle, skipConfirm = false, meta = null) {
   if (!db || !currentUser) return;
   
-  if (!confirm(`Are you sure you want to delete "${questionTitle}"?`)) {
+  if (!skipConfirm && !confirm(`Are you sure you want to delete "${questionTitle}"?`)) {
     return;
   }
   
   try {
     await db.collection(QUESTIONS_COLLECTION).doc(questionId).delete();
+    if (meta) {
+      rememberLastDeletedQuestion({
+        source: "cloud",
+        category: meta.category,
+        question: {
+          id: questionId,
+          title: questionTitle,
+          difficulty: meta.difficulty || "Medium",
+          link: meta.link || ""
+        }
+      });
+    }
+    showTopToast(`Deleted: ${questionTitle}`, "success");
   } catch (error) {
     console.error("Failed to delete question:", error);
     alert("Failed to delete question: " + error.message);
+    showTopToast("Delete failed", "error");
+  }
+}
+
+async function undoLastDeleteFromSidebar() {
+  if (!canAdminManage()) {
+    showSidebarActionStatus("Only admin can undo delete", "error");
+    return;
+  }
+
+  if (!lastDeletedQuestion) {
+    showSidebarActionStatus("No deleted question to undo", "info");
+    return;
+  }
+
+  try {
+    const snapshot = { ...lastDeletedQuestion };
+    showSidebarActionStatus("Restoring question...", "info");
+
+    if (snapshot.source === "default") {
+      const deletedQuestions = loadDeletedQuestions();
+      delete deletedQuestions[normalizeKey(snapshot.category, snapshot.question.title)];
+      saveDeletedQuestions(deletedQuestions);
+      mergeQuestions();
+      render();
+      scheduleCloudSync();
+    } else if (snapshot.source === "local-custom") {
+      const items = loadLocalCustomQuestions();
+      items.push({
+        id: snapshot.question.id || `local__${Date.now()}__undo`,
+        title: snapshot.question.title,
+        category: snapshot.category || "General",
+        difficulty: snapshot.question.difficulty || "Medium",
+        link: snapshot.question.link || ""
+      });
+      saveLocalCustomQuestions(items);
+      mergeQuestions();
+      render();
+    } else if (snapshot.source === "cloud") {
+      if (!db || !currentUser) {
+        throw new Error("Cloud is not available");
+      }
+
+      const docRef = snapshot.question.id
+        ? db.collection(QUESTIONS_COLLECTION).doc(snapshot.question.id)
+        : db.collection(QUESTIONS_COLLECTION).doc();
+
+      await docRef.set({
+        title: snapshot.question.title,
+        category: snapshot.category || "General",
+        difficulty: snapshot.question.difficulty || "Medium",
+        link: snapshot.question.link || "",
+        isActive: true,
+        restoredAt: firebase.firestore.FieldValue.serverTimestamp(),
+        restoredBy: currentUser.uid,
+        restoredByEmail: currentUser.email || ""
+      }, { merge: true });
+    }
+
+    lastDeletedQuestion = null;
+    updateUndoButtonState();
+    showSidebarActionStatus("Undo successful", "success");
+    showTopToast("Undo successful", "success");
+  } catch (error) {
+    console.error("Undo delete failed:", error);
+    showSidebarActionStatus(error?.message || "Undo failed", "error");
+    showTopToast("Undo failed", "error");
+  }
+}
+
+async function deleteQuestionByNumber(category, questionNumber) {
+  const list = renderedQuestions[category] || [];
+  if (!list.length) {
+    throw new Error(`No questions found in ${category}`);
+  }
+
+  if (!Number.isInteger(questionNumber) || questionNumber < 1 || questionNumber > list.length) {
+    throw new Error(`Question number must be between 1 and ${list.length}`);
+  }
+
+  const target = list[questionNumber - 1];
+  if (!target) {
+    throw new Error("Question not found");
+  }
+
+  if (target.id && !String(target.id).startsWith("local__")) {
+    await deleteQuestion(target.id, target.title, true, {
+      category,
+      difficulty: target.difficulty,
+      link: target.link
+    });
+  } else if (target.id && String(target.id).startsWith("local__")) {
+    removeLocalCustomQuestion(target.id);
+    rememberLastDeletedQuestion({
+      source: "local-custom",
+      category,
+      question: {
+        id: target.id,
+        title: target.title,
+        difficulty: target.difficulty || "Medium",
+        link: target.link || ""
+      }
+    });
+    mergeQuestions();
+    render();
+    showTopToast(`Deleted: ${target.title}`, "success");
+  } else {
+    const deletedQuestions = loadDeletedQuestions();
+    deletedQuestions[normalizeKey(category, target.title)] = true;
+    saveDeletedQuestions(deletedQuestions);
+    rememberLastDeletedQuestion({
+      source: "default",
+      category,
+      question: {
+        title: target.title,
+        difficulty: target.difficulty || "Medium",
+        link: target.link || ""
+      }
+    });
+    mergeQuestions();
+    render();
+    scheduleCloudSync();
+    showTopToast(`Deleted: ${target.title}`, "success");
+  }
+
+  return target.title;
+}
+
+async function deleteQuestionByNumberFromSidebar(event) {
+  event.preventDefault();
+  if (!canAdminManage()) {
+    showSidebarActionStatus("Only admin can delete questions", "error");
+    return;
+  }
+
+  const categoryEl = document.getElementById("sidebarDeleteCategory");
+  const numberEl = document.getElementById("sidebarDeleteNumber");
+  const categoryInput = (categoryEl?.value || "").trim();
+  const category = resolveCategoryName(categoryInput);
+  const questionNumber = Number(numberEl?.value || 0);
+
+  if (!categoryInput) {
+    showSidebarActionStatus("Enter a topic name first", "error");
+    return;
+  }
+
+  if (!Number.isInteger(questionNumber) || questionNumber < 1) {
+    showSidebarActionStatus("Enter a valid question number", "error");
+    return;
+  }
+
+  const list = renderedQuestions[category] || [];
+  if (!list.length) {
+    showSidebarActionStatus(`No questions found in topic: ${categoryInput}`, "error");
+    return;
+  }
+
+  if (questionNumber > list.length) {
+    showSidebarActionStatus(`Max question number in ${category} is ${list.length}`, "error");
+    return;
+  }
+
+  const target = list[questionNumber - 1];
+  if (!target) {
+    showSidebarActionStatus("Question not found", "error");
+    return;
+  }
+
+  const yes = confirm(`Delete Q${questionNumber} in ${category}: \"${target.title}\" ?`);
+  if (!yes) {
+    showSidebarActionStatus("Delete cancelled", "info");
+    return;
+  }
+
+  try {
+    showSidebarActionStatus("Deleting question...", "info");
+    const deletedTitle = await deleteQuestionByNumber(category, questionNumber);
+    if (numberEl) numberEl.value = "";
+    showSidebarActionStatus(`Deleted successfully: ${deletedTitle}`, "success");
+  } catch (error) {
+    console.error("Delete by number failed:", error);
+    showSidebarActionStatus(error?.message || "Failed to delete question", "error");
   }
 }
 
@@ -543,6 +961,48 @@ function loadNotes() {
   }
 }
 
+function loadDeletedQuestions() {
+  try {
+    return JSON.parse(localStorage.getItem(DELETED_QUESTIONS_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDeletedQuestions(state) {
+  localStorage.setItem(DELETED_QUESTIONS_KEY, JSON.stringify(state));
+}
+
+function loadLocalCustomQuestions() {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_CUSTOM_QUESTIONS_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalCustomQuestions(items) {
+  localStorage.setItem(LOCAL_CUSTOM_QUESTIONS_KEY, JSON.stringify(items));
+}
+
+function addLocalCustomQuestion(payload) {
+  const items = loadLocalCustomQuestions();
+  items.push({
+    id: `local__${Date.now()}__${Math.random().toString(36).slice(2, 8)}`,
+    title: payload.title,
+    category: payload.category,
+    difficulty: payload.difficulty,
+    link: payload.link || ""
+  });
+  saveLocalCustomQuestions(items);
+}
+
+function removeLocalCustomQuestion(localId) {
+  const items = loadLocalCustomQuestions();
+  const next = items.filter((x) => x.id !== localId);
+  saveLocalCustomQuestions(next);
+}
+
 function saveNotes(notes) {
   localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
 }
@@ -575,8 +1035,8 @@ function openNotesModal(key, questionTitle) {
   title.textContent = `Edit Notes - ${questionTitle}`;
   textarea.value = existingNote;
   modal.classList.add("active");
+  updateNotesLineNumbers();
   textarea.focus();
-  textarea.select();
 }
 
 function closeNotesModal() {
@@ -599,6 +1059,16 @@ function saveNotesFromModal() {
   }
   
   closeNotesModal();
+}
+
+function updateNotesLineNumbers() {
+  const textarea = document.getElementById("notesTextarea");
+  const lineNumbers = document.getElementById("notesLineNumbers");
+  if (!textarea || !lineNumbers) return;
+
+  const lineCount = Math.max(1, textarea.value.split("\n").length);
+  lineNumbers.innerHTML = Array.from({ length: lineCount }, (_, i) => `<span>${i + 1}</span>`).join("");
+  lineNumbers.scrollTop = textarea.scrollTop;
 }
 
 function setSyncStatus(text) {
@@ -635,6 +1105,7 @@ async function syncToCloud() {
     progress: loadState(),
     dates: loadDateState(),
     notes: loadNotes(),
+    deletedQuestions: loadDeletedQuestions(),
     theme: document.documentElement.getAttribute("data-theme") || "dark",
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
@@ -657,6 +1128,7 @@ async function loadFromCloud(uid) {
       if (data.progress && typeof data.progress === "object") saveState(data.progress);
       if (data.dates && typeof data.dates === "object") saveDateState(data.dates);
       if (data.notes && typeof data.notes === "object") saveNotes(data.notes);
+      if (data.deletedQuestions && typeof data.deletedQuestions === "object") saveDeletedQuestions(data.deletedQuestions);
       if (data.theme === "dark" || data.theme === "light") {
         applyTheme(data.theme);
         saveLocalTheme(data.theme);
@@ -680,12 +1152,18 @@ function updateAuthUI(user) {
     authUser.textContent = user.email || "Signed in";
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline-block";
-    if (adminBadge) adminBadge.style.display = isAdminUser ? "inline-flex" : "none";
+    if (adminBadge) {
+      adminBadge.textContent = isAdminUser ? "ADMIN" : (isLocalTestMode ? "TEST" : "ADMIN");
+      adminBadge.style.display = canAdminManage() ? "inline-flex" : "none";
+    }
   } else {
-    authUser.textContent = "Not signed in";
+    authUser.textContent = isLocalTestMode ? "Local test mode" : "Not signed in";
     loginBtn.style.display = "inline-block";
     logoutBtn.style.display = "none";
-    if (adminBadge) adminBadge.style.display = "none";
+    if (adminBadge) {
+      adminBadge.textContent = isLocalTestMode ? "TEST" : "ADMIN";
+      adminBadge.style.display = isLocalTestMode ? "inline-flex" : "none";
+    }
     setSyncStatus("Local only");
   }
 
@@ -695,6 +1173,7 @@ function updateAuthUI(user) {
 function initFirebaseAuth() {
   if (!firebaseConfigured()) {
     setSyncStatus("Configure Firebase");
+    updateAuthUI(null);
     updateAddQuestionUI();
     return;
   }
@@ -744,10 +1223,13 @@ function initFirebaseAuth() {
           if (data.progress && typeof data.progress === "object") saveState(data.progress);
           if (data.dates && typeof data.dates === "object") saveDateState(data.dates);
           if (data.notes && typeof data.notes === "object") saveNotes(data.notes);
+          if (data.deletedQuestions && typeof data.deletedQuestions === "object") saveDeletedQuestions(data.deletedQuestions);
           if (data.theme === "dark" || data.theme === "light") {
             applyTheme(data.theme);
             saveLocalTheme(data.theme);
           }
+          mergeQuestions();
+          render();
           updateProgress();
           reapplyCheckboxesFromState();
           setSyncStatus("Synced");
@@ -841,16 +1323,24 @@ function updateStickyProgress(total, done) {
 function setSyncIndicator(status) {
   const circle = document.getElementById('syncStatusCircle');
   const label = document.getElementById('syncStatusLabel');
-  if (!circle || !label) return;
+  if (!circle) return;
   circle.classList.remove('local-only','syncing','synced');
-  if (status === 'Local only' || status === 'Configure Firebase') {
-    circle.classList.add('local-only');
-  } else if (status === 'Syncing...' || status === 'Loading cloud data...') {
-    circle.classList.add('syncing');
-  } else if (status === 'Synced') {
+
+  // Keep indicator simple: green = synced, red = otherwise
+  if (status === 'Synced') {
     circle.classList.add('synced');
+  } else {
+    circle.classList.add('local-only');
   }
-  label.textContent = status;
+
+  if (label) label.textContent = status;
+  circle.title = status;
+
+  const container = circle.closest('.sync-indicator');
+  if (container) {
+    container.title = status;
+    container.setAttribute('aria-label', status);
+  }
 }
 
 function updateProgress() {
@@ -859,11 +1349,40 @@ function updateProgress() {
   const allCheckboxes = [...document.querySelectorAll(".q-item input[type='checkbox']")];
   const total = allCheckboxes.length;
   const done = allCheckboxes.filter((x) => x.checked).length;
+  const totalPct = total === 0 ? 0 : Math.round((done / total) * 100);
 
   const overallText = document.getElementById("overallText");
   const overallBar = document.getElementById("overallBar");
+  const overallPercent = document.getElementById("overallPercent");
   if (overallText) overallText.textContent = `${done} / ${total}`;
   if (overallBar) overallBar.style.width = `${(done / Math.max(total, 1)) * 100}%`;
+  if (overallPercent) overallPercent.textContent = `${totalPct}%`;
+
+  const navTotalProgressBtn = document.getElementById("navTotalProgressBtn");
+  if (navTotalProgressBtn) {
+    navTotalProgressBtn.textContent = `${totalPct}%`;
+    navTotalProgressBtn.title = `Total progress: ${done} / ${total}`;
+    navTotalProgressBtn.setAttribute("aria-label", `Total progress: ${done} of ${total}`);
+  }
+
+  const diffTotals = { Easy: 0, Medium: 0, Hard: 0 };
+  const diffDone = { Easy: 0, Medium: 0, Hard: 0 };
+  Object.entries(renderedQuestions).forEach(([category, questions]) => {
+    questions.forEach((question) => {
+      const level = DIFFICULTY_OPTIONS.includes(question.difficulty) ? question.difficulty : "Medium";
+      diffTotals[level] += 1;
+      if (solvedState[questionKey(category, question)]) {
+        diffDone[level] += 1;
+      }
+    });
+  });
+
+  const easyProgressText = document.getElementById("easyProgressText");
+  const mediumProgressText = document.getElementById("mediumProgressText");
+  const hardProgressText = document.getElementById("hardProgressText");
+  if (easyProgressText) easyProgressText.textContent = `${diffDone.Easy} / ${diffTotals.Easy}`;
+  if (mediumProgressText) mediumProgressText.textContent = `${diffDone.Medium} / ${diffTotals.Medium}`;
+  if (hardProgressText) hardProgressText.textContent = `${diffDone.Hard} / ${diffTotals.Hard}`;
 
   updateStickyProgress(total, done);
 
@@ -939,7 +1458,7 @@ function render() {
     questions.forEach((question, index) => {
       const key = questionKey(category, question);
       const checked = !!state[key];
-      const qNumber = index + 1; // Question number
+      const qNumber = index + 1;
 
       const item = document.createElement("div");
       item.className = `q-item ${checked ? "done" : ""}`;
@@ -989,7 +1508,7 @@ function render() {
 
       const notesBtn = document.createElement("button");
       notesBtn.className = "notes-btn";
-      notesBtn.textContent = "📝";
+      notesBtn.textContent = "✎";
       notesBtn.title = "Add notes";
       notesBtn.dataset.key = key;
       notesBtn.addEventListener("click", () => {
@@ -1001,32 +1520,11 @@ function render() {
         notesBtn.classList.add("has-notes");
       }
 
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "delete-btn";
-      deleteBtn.textContent = "✕";
-      deleteBtn.title = "Delete question (Admin only)";
-      deleteBtn.addEventListener("click", () => {
-        if (!isAdminUser) {
-          alert("Only admins can delete questions");
-          return;
-        }
-        if (question.id) {
-          // Cloud question - delete from Firestore
-          deleteQuestion(question.id, question.title);
-        } else {
-          // Local question - not deletable from UI, only sync'd questions
-          alert("Only synced questions can be deleted. Local bundled questions are part of the default set.");
-        }
-      });
-
       item.appendChild(checkbox);
       item.appendChild(qNumBadge);
       item.appendChild(label);
       item.appendChild(difficultyTag);
       item.appendChild(notesBtn);
-      if (question.id && isAdminUser) {
-        item.appendChild(deleteBtn);
-      }
       list.appendChild(item);
     });
 
@@ -1045,46 +1543,62 @@ function wireActions() {
   // Vertical Navigation Setup
   const navPanel = document.getElementById("sidebarPanel");
   const navAccountBtn = document.getElementById("navAccountBtn");
-  const navHomeBtn = document.getElementById("navHomeBtn");
+  const navAddBtn = document.getElementById("navAddBtn");
+  const navDeleteBtn = document.getElementById("navDeleteBtn");
   const navThemeBtn = document.getElementById("navThemeBtn");
   const panelAccount = document.getElementById("panelAccount");
-  const closePanelBtn = document.getElementById("closePanelBtn");
+  const panelAdd = document.getElementById("panelAdd");
+  const panelDelete = document.getElementById("panelDelete");
+
+  const allPanels = [panelAccount, panelAdd, panelDelete].filter(Boolean);
+  const allPanelButtons = [navAccountBtn, navAddBtn, navDeleteBtn].filter(Boolean);
 
   // Helper function to close panel
   const closePanel = () => {
+    if (!navPanel) return;
     navPanel.classList.remove("open");
-    document.querySelectorAll(".panel-content").forEach(p => p.classList.remove("active"));
-    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("nav-active"));
-    navHomeBtn.classList.add("nav-active");
+    document.body.classList.remove("sidebar-open");
+    allPanels.forEach((p) => p.classList.remove("active"));
+    allPanelButtons.forEach((b) => b.classList.remove("nav-active"));
   };
 
-  // Account button
+  const openPanel = (panelEl, buttonEl) => {
+    if (!navPanel || !panelEl || !buttonEl) return;
+    const isOpen = navPanel.classList.contains("open") && panelEl.classList.contains("active");
+    if (isOpen) {
+      closePanel();
+      return;
+    }
+
+    navPanel.classList.add("open");
+    document.body.classList.add("sidebar-open");
+    allPanels.forEach((p) => p.classList.remove("active"));
+    allPanelButtons.forEach((b) => b.classList.remove("nav-active"));
+    panelEl.classList.add("active");
+    buttonEl.classList.add("nav-active");
+  };
+
   if (navAccountBtn) {
     navAccountBtn.addEventListener("click", () => {
-      const isOpen = navPanel.classList.contains("open") && panelAccount.classList.contains("active");
-      if (isOpen) {
-        closePanel();
-      } else {
-        navPanel.classList.add("open");
-        document.querySelectorAll(".panel-content").forEach(p => p.classList.remove("active"));
-        document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("nav-active"));
-        panelAccount.classList.add("active");
-        navAccountBtn.classList.add("nav-active");
-      }
+      openPanel(panelAccount, navAccountBtn);
     });
   }
 
-  // Home button
-  if (navHomeBtn) {
-    navHomeBtn.addEventListener("click", () => {
-      closePanel();
+  if (navAddBtn) {
+    navAddBtn.addEventListener("click", () => {
+      openPanel(panelAdd, navAddBtn);
     });
   }
 
-  // Close panel buttons
-  if (closePanelBtn) {
-    closePanelBtn.addEventListener("click", closePanel);
+  if (navDeleteBtn) {
+    navDeleteBtn.addEventListener("click", () => {
+      openPanel(panelDelete, navDeleteBtn);
+    });
   }
+
+  document.querySelectorAll("[data-close-panel='true']").forEach((btn) => {
+    btn.addEventListener("click", closePanel);
+  });
 
   // Theme button
   if (navThemeBtn) {
@@ -1094,6 +1608,16 @@ function wireActions() {
       applyTheme(next);
       saveLocalTheme(next);
       scheduleCloudSync();
+    });
+  }
+
+  const navTotalProgressBtn = document.getElementById("navTotalProgressBtn");
+  if (navTotalProgressBtn) {
+    navTotalProgressBtn.addEventListener("click", () => {
+      const summaryCard = document.querySelector(".summary");
+      if (summaryCard) {
+        summaryCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     });
   }
 
@@ -1125,19 +1649,24 @@ function wireActions() {
     document.querySelectorAll("details").forEach((d) => { d.open = false; });
   });
 
-  const heatmapToggleBtn = document.getElementById("sidebarHeatmapToggleBtn") || document.getElementById("heatmapToggleBtn");
-  const heatmapContent = document.getElementById("sidebarHeatmapContent") || document.getElementById("heatmapContent");
-  if (heatmapToggleBtn && heatmapContent) {
-    heatmapToggleBtn.addEventListener("click", () => {
-      const isVisible = heatmapContent.style.display !== "none";
-      heatmapContent.style.display = isVisible ? "none" : "block";
-      heatmapToggleBtn.textContent = isVisible ? "+" : "−";
-    });
-  }
-
   const addQuestionForm = document.getElementById("addQuestionForm");
   if (addQuestionForm) {
     addQuestionForm.addEventListener("submit", addQuestionFromForm);
+  }
+
+  const sidebarAddQuestionForm = document.getElementById("sidebarAddQuestionForm");
+  if (sidebarAddQuestionForm) {
+    sidebarAddQuestionForm.addEventListener("submit", addQuestionFromSidebar);
+  }
+
+  const sidebarDeleteQuestionForm = document.getElementById("sidebarDeleteQuestionForm");
+  if (sidebarDeleteQuestionForm) {
+    sidebarDeleteQuestionForm.addEventListener("submit", deleteQuestionByNumberFromSidebar);
+  }
+
+  const sidebarUndoDeleteBtn = document.getElementById("sidebarUndoDeleteBtn");
+  if (sidebarUndoDeleteBtn) {
+    sidebarUndoDeleteBtn.addEventListener("click", undoLastDeleteFromSidebar);
   }
 
   const syncBtn = document.getElementById("syncLeetCodeBtn");
@@ -1172,6 +1701,8 @@ function wireActions() {
   }
 
   if (notesTextarea) {
+    notesTextarea.addEventListener("input", updateNotesLineNumbers);
+    notesTextarea.addEventListener("scroll", updateNotesLineNumbers);
     notesTextarea.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         closeNotesModal();
@@ -1189,8 +1720,12 @@ function wireActions() {
       }
     });
   }
+
+  updateNotesLineNumbers();
+  updateUndoButtonState();
 }
 
+isLocalTestMode = loadLocalTestMode();
 mergeQuestions();
 initTheme();
 render();

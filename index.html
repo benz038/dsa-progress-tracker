@@ -32,8 +32,42 @@
   <div class="layout-wrapper">
     <!-- Left Vertical Navigation Bar -->
     <nav class="vertical-nav">
-      <button id="navAccountBtn" class="nav-btn" title="Account">👤</button>
-      <button id="navThemeBtn" class="nav-btn" title="Toggle theme">🌙</button>
+      <button id="navAccountBtn" class="nav-btn" title="Account" aria-label="Account panel">
+        <span class="nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 10.5L12 3l9 7.5"></path>
+            <path d="M5 9.5V20h14V9.5"></path>
+          </svg>
+        </span>
+      </button>
+      <button id="navAddBtn" class="nav-btn nav-action-add" title="Add Questions" aria-label="Add questions panel">
+        <span class="nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+        </span>
+      </button>
+      <button id="navDeleteBtn" class="nav-btn nav-action-delete" title="Delete Questions" aria-label="Delete questions panel">
+        <span class="nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"></path>
+            <path d="M8 6V4h8v2"></path>
+            <path d="M19 6l-1 14H6L5 6"></path>
+            <path d="M10 10v7"></path>
+            <path d="M14 10v7"></path>
+          </svg>
+        </span>
+      </button>
+      <button id="navTotalProgressBtn" class="nav-btn nav-progress-btn" title="Total progress">0%</button>
+      <div class="nav-divider"></div>
+      <button id="navThemeBtn" class="nav-btn" title="Toggle theme" aria-label="Toggle theme">
+        <span class="nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 1 0 9.8 9.8z"></path>
+          </svg>
+        </span>
+      </button>
     </nav>
 
     <!-- Side Panel (Hidden by default) -->
@@ -42,7 +76,7 @@
       <div class="panel-content panel-account" id="panelAccount">
         <div class="panel-header">
           <h3>Account</h3>
-          <button class="panel-close" id="closePanelBtn">✕</button>
+          <button class="panel-close" data-close-panel="true">✕</button>
         </div>
         <div class="panel-body">
           <div class="auth-row-sidebar">
@@ -50,18 +84,88 @@
             <span id="adminBadge" class="admin-badge" style="display:none;">ADMIN</span>
           </div>
           <div class="auth-actions-sidebar">
-            <button id="googleLoginBtn" type="button">🔐 Sign in with Google</button>
+            <button id="googleLoginBtn" type="button"><span class="btn-icon">G</span><span>Sign in with Google</span></button>
             <button id="logoutBtn" type="button" style="display:none;">Logout</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Add Questions Panel -->
+      <div class="panel-content panel-add" id="panelAdd">
+        <div class="panel-header">
+          <h3>Add Questions</h3>
+          <button class="panel-close" data-close-panel="true">✕</button>
+        </div>
+        <div class="panel-body">
+          <p class="panel-subtitle">Use this panel to add new questions.</p>
+
+          <form id="sidebarAddQuestionForm" class="sidebar-mini-form">
+            <div class="mini-form-title">Add Question</div>
+            <input id="sidebarQTitleInput" type="text" placeholder="Question title" required />
+            <input id="sidebarQCategoryInput" type="text" list="categorySuggestions" placeholder="Topic name (e.g. Arrays)" required />
+            <select id="sidebarQDifficultyInput" required>
+              <option value="Easy">Easy</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+            <input id="sidebarQLinkInput" type="url" placeholder="https://problem-link" />
+            <button id="sidebarAddQuestionBtn" type="submit">Add Question</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Delete Questions Panel -->
+      <div class="panel-content panel-delete" id="panelDelete">
+        <div class="panel-header">
+          <h3>Delete Questions</h3>
+          <button class="panel-close" data-close-panel="true">✕</button>
+        </div>
+        <div class="panel-body">
+          <p class="panel-subtitle">Delete questions by category and question number.</p>
+
+          <form id="sidebarDeleteQuestionForm" class="sidebar-mini-form sidebar-delete-form">
+            <div class="mini-form-title">Delete by Question No.</div>
+            <input id="sidebarDeleteCategory" type="text" list="categorySuggestions" placeholder="Topic name (e.g. Arrays)" required />
+            <input id="sidebarDeleteNumber" type="number" min="1" step="1" placeholder="Question number" required />
+            <button id="sidebarDeleteQuestionBtn" type="submit" class="danger">Delete by Number</button>
+          </form>
+
+          <button id="sidebarUndoDeleteBtn" type="button" class="sidebar-undo-btn" disabled>↩ Undo Last Delete</button>
+
+          <div id="sidebarActionStatus" class="sidebar-action-status" aria-live="polite"></div>
         </div>
       </div>
     </aside>
 
     <main class="container">
       <section class="card summary">
-        <div class="summary-row">
-          <strong>Total Progress</strong>
-          <span id="overallText">0 / 0</span>
+        <div class="summary-hero">
+          <div class="summary-hero-left">
+            <div class="progress-ring">
+              <span id="overallPercent">0%</span>
+            </div>
+            <div class="summary-hero-text">
+              <div class="summary-title">Overall Progress</div>
+              <div id="overallText" class="summary-count">0 / 0</div>
+            </div>
+          </div>
+          <div class="summary-difficulty-split">
+            <div class="split-item split-easy">
+              <span class="split-dot"></span>
+              <span>Easy</span>
+              <strong id="easyProgressText">0 / 0</strong>
+            </div>
+            <div class="split-item split-medium">
+              <span class="split-dot"></span>
+              <span>Medium</span>
+              <strong id="mediumProgressText">0 / 0</strong>
+            </div>
+            <div class="split-item split-hard">
+              <span class="split-dot"></span>
+              <span>Hard</span>
+              <strong id="hardProgressText">0 / 0</strong>
+            </div>
+          </div>
         </div>
         <div class="progress"><div id="overallBar"></div></div>
         <div class="stats">
@@ -79,25 +183,7 @@
           <button id="collapseAllBtn" type="button">Collapse All</button>
           <button id="resetBtn" type="button" class="danger">Reset Progress</button>
         </div>
-        <form id="addQuestionForm" class="add-question-form">
-          <div class="form-title">Add Question</div>
-          <div class="form-grid">
-            <input id="qTitleInput" type="text" placeholder="Question title" required />
-            <input id="qCategoryInput" type="text" placeholder="Category" list="categorySuggestions" required />
-            <datalist id="categorySuggestions"></datalist>
-            <select id="qDifficultyInput" required>
-              <option value="Easy">Easy</option>
-              <option value="Medium" selected>Medium</option>
-              <option value="Hard">Hard</option>
-            </select>
-            <input id="qLinkInput" type="url" placeholder="https://problem-link" />
-          </div>
-          <div class="form-actions">
-            <button id="addQuestionBtn" type="submit">Add Question</button>
-            <button id="syncLeetCodeBtn" type="button">Sync LeetCode Title + Difficulty</button>
-            <span id="addQuestionStatus" class="form-status">Sign in to add questions</span>
-          </div>
-        </form>
+        <datalist id="categorySuggestions"></datalist>
         <p class="note">Saved in browser local storage (persists across refreshes).</p>
       </section>
 
@@ -109,6 +195,8 @@
     <small>Made by DSK :)</small>
   </footer>
 
+  <div id="topToast" class="top-toast" role="status" aria-live="polite"></div>
+
   <!-- Notes Editor Modal -->
   <div id="notesModal" class="notes-modal">
     <div class="notes-modal-content">
@@ -117,7 +205,18 @@
         <button class="notes-modal-close" id="notesModalCloseBtn">✕</button>
       </div>
       <div class="notes-modal-body">
-        <textarea id="notesTextarea" class="notes-textarea" placeholder="Write your notes here..."></textarea>
+        <div class="notes-editor-wrap">
+          <div class="notes-editor-toolbar">
+            <span class="editor-dot dot-red"></span>
+            <span class="editor-dot dot-yellow"></span>
+            <span class="editor-dot dot-green"></span>
+            <span class="editor-file-label">notes.cpp</span>
+          </div>
+          <div class="notes-editor-content">
+            <div id="notesLineNumbers" class="notes-line-numbers"><span>1</span></div>
+            <textarea id="notesTextarea" class="notes-textarea" spellcheck="false" placeholder="// Write your notes or code here..."></textarea>
+          </div>
+        </div>
       </div>
       <div class="notes-modal-footer">
         <button id="notesModalSaveBtn" class="notes-modal-btn save-btn">Save</button>
