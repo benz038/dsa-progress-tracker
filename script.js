@@ -418,6 +418,21 @@ async function addQuestionFromForm(event) {
   }
 }
 
+async function deleteQuestion(questionId, questionTitle) {
+  if (!db || !currentUser) return;
+  
+  if (!confirm(`Are you sure you want to delete "${questionTitle}"?`)) {
+    return;
+  }
+  
+  try {
+    await db.collection(QUESTIONS_COLLECTION).doc(questionId).delete();
+  } catch (error) {
+    console.error("Failed to delete question:", error);
+    alert("Failed to delete question: " + error.message);
+  }
+}
+
 async function syncLeetCodeDifficulties() {
   const status = document.getElementById("addQuestionStatus");
   if (!db || !currentUser || !isAdminUser) {
@@ -546,6 +561,44 @@ function setNote(key, text) {
   }
   saveNotes(notes);
   scheduleCloudSync();
+}
+
+let currentEditingNoteKey = null;
+
+function openNotesModal(key, questionTitle) {
+  currentEditingNoteKey = key;
+  const modal = document.getElementById("notesModal");
+  const textarea = document.getElementById("notesTextarea");
+  const title = document.getElementById("notesModalTitle");
+  const existingNote = getNote(key);
+  
+  title.textContent = `Edit Notes - ${questionTitle}`;
+  textarea.value = existingNote;
+  modal.classList.add("active");
+  textarea.focus();
+  textarea.select();
+}
+
+function closeNotesModal() {
+  const modal = document.getElementById("notesModal");
+  modal.classList.remove("active");
+  currentEditingNoteKey = null;
+}
+
+function saveNotesFromModal() {
+  if (currentEditingNoteKey === null) return;
+  
+  const textarea = document.getElementById("notesTextarea");
+  const newNote = textarea.value;
+  setNote(currentEditingNoteKey, newNote);
+  
+  // Update the button to show if notes exist
+  const notesBtn = document.querySelector(`.notes-btn[data-key="${currentEditingNoteKey}"]`);
+  if (notesBtn) {
+    notesBtn.classList.toggle("has-notes", !!newNote.trim());
+  }
+  
+  closeNotesModal();
 }
 
 function setSyncStatus(text) {
@@ -775,42 +828,6 @@ function formatDate(date) {
   }).format(date);
 }
 
-function levelFromCount(count, max) {
-  if (count <= 0 || max <= 0) return 0;
-  const ratio = count / max;
-  if (ratio <= 0.25) return 1;
-  if (ratio <= 0.5) return 2;
-  if (ratio <= 0.75) return 3;
-  return 4;
-}
-
-function renderHeatmap(countsByDate) {
-  const grid = document.getElementById("sidebarHeatmapGrid") || document.getElementById("heatmapGrid");
-  if (!grid) return;
-  
-  // Clear existing content
-  grid.innerHTML = "";
-
-  const daysToShow = 84; // 12 weeks
-  const end = new Date();
-  end.setHours(0, 0, 0, 0);
-  const start = shiftDate(end, -(daysToShow - 1));
-
-  const maxCount = Math.max(0, ...Object.values(countsByDate));
-
-  for (let i = 0; i < daysToShow; i += 1) {
-    const d = shiftDate(start, i);
-    const key = toISODate(d);
-    const count = countsByDate[key] || 0;
-    const level = levelFromCount(count, maxCount);
-
-    const cell = document.createElement("div");
-    cell.className = `heatmap-cell level-${level}`;
-    cell.title = `${formatDate(d)}: ${count} solved`;
-    grid.appendChild(cell);
-  }
-}
-
 function updateStickyProgress(total, done) {
   const textEl = document.getElementById('stickyProgressText');
   const barEl = document.getElementById('stickyProgressBar');
@@ -877,7 +894,6 @@ function updateProgress() {
 
   const dateWiseList = document.getElementById("dateWiseList");
   if (!dateWiseList) {
-    renderHeatmap(countsByDate);
     return;
   }
   dateWiseList.innerHTML = "";
@@ -896,8 +912,6 @@ function updateProgress() {
       dateWiseList.appendChild(row);
     });
   }
-
-  renderHeatmap(countsByDate);
 }
 
 function render() {
@@ -922,9 +936,10 @@ function render() {
     const list = document.createElement("div");
     list.className = "q-list";
 
-    questions.forEach((question) => {
+    questions.forEach((question, index) => {
       const key = questionKey(category, question);
       const checked = !!state[key];
+      const qNumber = index + 1; // Question number
 
       const item = document.createElement("div");
       item.className = `q-item ${checked ? "done" : ""}`;
@@ -934,6 +949,11 @@ function render() {
       checkbox.checked = checked;
       checkbox.dataset.key = key;
       checkbox.dataset.category = category;
+
+      // Question number badge
+      const qNumBadge = document.createElement("span");
+      qNumBadge.className = "q-number";
+      qNumBadge.textContent = String(qNumber);
 
       const label = document.createElement("label");
       if (question.link) {
@@ -971,13 +991,9 @@ function render() {
       notesBtn.className = "notes-btn";
       notesBtn.textContent = "📝";
       notesBtn.title = "Add notes";
+      notesBtn.dataset.key = key;
       notesBtn.addEventListener("click", () => {
-        const existingNote = getNote(key);
-        const newNote = prompt("Add your notes for this question:", existingNote);
-        if (newNote !== null) {
-          setNote(key, newNote);
-          notesBtn.classList.toggle("has-notes", !!newNote.trim());
-        }
+        openNotesModal(key, question.title);
       });
 
       const currentNote = getNote(key);
@@ -985,10 +1001,32 @@ function render() {
         notesBtn.classList.add("has-notes");
       }
 
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "delete-btn";
+      deleteBtn.textContent = "✕";
+      deleteBtn.title = "Delete question (Admin only)";
+      deleteBtn.addEventListener("click", () => {
+        if (!isAdminUser) {
+          alert("Only admins can delete questions");
+          return;
+        }
+        if (question.id) {
+          // Cloud question - delete from Firestore
+          deleteQuestion(question.id, question.title);
+        } else {
+          // Local question - not deletable from UI, only sync'd questions
+          alert("Only synced questions can be deleted. Local bundled questions are part of the default set.");
+        }
+      });
+
       item.appendChild(checkbox);
+      item.appendChild(qNumBadge);
       item.appendChild(label);
       item.appendChild(difficultyTag);
       item.appendChild(notesBtn);
+      if (question.id && isAdminUser) {
+        item.appendChild(deleteBtn);
+      }
       list.appendChild(item);
     });
 
@@ -1007,13 +1045,10 @@ function wireActions() {
   // Vertical Navigation Setup
   const navPanel = document.getElementById("sidebarPanel");
   const navAccountBtn = document.getElementById("navAccountBtn");
-  const navHeatmapBtn = document.getElementById("navHeatmapBtn");
   const navHomeBtn = document.getElementById("navHomeBtn");
   const navThemeBtn = document.getElementById("navThemeBtn");
   const panelAccount = document.getElementById("panelAccount");
-  const panelHeatmap = document.getElementById("panelHeatmap");
   const closePanelBtn = document.getElementById("closePanelBtn");
-  const closeHeatmapBtn = document.getElementById("closeHeatmapBtn");
 
   // Helper function to close panel
   const closePanel = () => {
@@ -1039,22 +1074,6 @@ function wireActions() {
     });
   }
 
-  // Heatmap button
-  if (navHeatmapBtn) {
-    navHeatmapBtn.addEventListener("click", () => {
-      const isOpen = navPanel.classList.contains("open") && panelHeatmap.classList.contains("active");
-      if (isOpen) {
-        closePanel();
-      } else {
-        navPanel.classList.add("open");
-        document.querySelectorAll(".panel-content").forEach(p => p.classList.remove("active"));
-        document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("nav-active"));
-        panelHeatmap.classList.add("active");
-        navHeatmapBtn.classList.add("nav-active");
-      }
-    });
-  }
-
   // Home button
   if (navHomeBtn) {
     navHomeBtn.addEventListener("click", () => {
@@ -1065,9 +1084,6 @@ function wireActions() {
   // Close panel buttons
   if (closePanelBtn) {
     closePanelBtn.addEventListener("click", closePanel);
-  }
-  if (closeHeatmapBtn) {
-    closeHeatmapBtn.addEventListener("click", closePanel);
   }
 
   // Theme button
@@ -1132,6 +1148,44 @@ function wireActions() {
         await syncLeetCodeDifficulties();
       } finally {
         syncBtn.disabled = false;
+      }
+    });
+  }
+
+  // Notes Modal Setup
+  const notesModal = document.getElementById("notesModal");
+  const notesModalCloseBtn = document.getElementById("notesModalCloseBtn");
+  const notesModalCancelBtn = document.getElementById("notesModalCancelBtn");
+  const notesModalSaveBtn = document.getElementById("notesModalSaveBtn");
+  const notesTextarea = document.getElementById("notesTextarea");
+
+  if (notesModalCloseBtn) {
+    notesModalCloseBtn.addEventListener("click", closeNotesModal);
+  }
+
+  if (notesModalCancelBtn) {
+    notesModalCancelBtn.addEventListener("click", closeNotesModal);
+  }
+
+  if (notesModalSaveBtn) {
+    notesModalSaveBtn.addEventListener("click", saveNotesFromModal);
+  }
+
+  if (notesTextarea) {
+    notesTextarea.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeNotesModal();
+      } else if (e.ctrlKey && e.key === "s" || e.metaKey && e.key === "s") {
+        e.preventDefault();
+        saveNotesFromModal();
+      }
+    });
+  }
+
+  if (notesModal) {
+    notesModal.addEventListener("click", (e) => {
+      if (e.target === notesModal) {
+        closeNotesModal();
       }
     });
   }

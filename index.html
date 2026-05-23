@@ -33,7 +33,6 @@
     <!-- Left Vertical Navigation Bar -->
     <nav class="vertical-nav">
       <button id="navAccountBtn" class="nav-btn" title="Account">👤</button>
-      <button id="navHeatmapBtn" class="nav-btn" title="Heatmap">🔥</button>
       <button id="navThemeBtn" class="nav-btn" title="Toggle theme">🌙</button>
     </nav>
 
@@ -51,28 +50,8 @@
             <span id="adminBadge" class="admin-badge" style="display:none;">ADMIN</span>
           </div>
           <div class="auth-actions-sidebar">
-            <button id="googleLoginBtn" type="button">Sign in with Google</button>
+            <button id="googleLoginBtn" type="button">🔐 Sign in with Google</button>
             <button id="logoutBtn" type="button" style="display:none;">Logout</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Heatmap Panel -->
-      <div class="panel-content panel-heatmap" id="panelHeatmap">
-        <div class="panel-header">
-          <h3>Heatmap</h3>
-          <button class="panel-close" id="closeHeatmapBtn">✕</button>
-        </div>
-        <div class="panel-body">
-          <div id="sidebarHeatmapGrid" class="heatmap-grid"></div>
-          <div class="heatmap-legend">
-            <span>Less</span>
-            <div class="heatmap-cell level-0"></div>
-            <div class="heatmap-cell level-1"></div>
-            <div class="heatmap-cell level-2"></div>
-            <div class="heatmap-cell level-3"></div>
-            <div class="heatmap-cell level-4"></div>
-            <span>More</span>
           </div>
         </div>
       </div>
@@ -129,6 +108,23 @@
   <footer class="footer">
     <small>Made by DSK :)</small>
   </footer>
+
+  <!-- Notes Editor Modal -->
+  <div id="notesModal" class="notes-modal">
+    <div class="notes-modal-content">
+      <div class="notes-modal-header">
+        <h2 id="notesModalTitle">Edit Notes</h2>
+        <button class="notes-modal-close" id="notesModalCloseBtn">✕</button>
+      </div>
+      <div class="notes-modal-body">
+        <textarea id="notesTextarea" class="notes-textarea" placeholder="Write your notes here..."></textarea>
+      </div>
+      <div class="notes-modal-footer">
+        <button id="notesModalSaveBtn" class="notes-modal-btn save-btn">Save</button>
+        <button id="notesModalCancelBtn" class="notes-modal-btn cancel-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>

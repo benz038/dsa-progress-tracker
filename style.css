@@ -311,17 +311,61 @@ body {
 .auth-row-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.8rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.auth-user {
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text);
 }
 
 .auth-actions-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.8rem;
+  width: 100%;
 }
 
 .auth-actions-sidebar button {
   width: 100%;
+  padding: 0.8rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+#googleLoginBtn {
+  background: #4285F4;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+#googleLoginBtn:hover {
+  background: #357ae8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+}
+
+#logoutBtn {
+  background: var(--danger);
+  color: white;
+}
+
+#logoutBtn:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 /* Theme Toggle Button - Bottom */
@@ -689,26 +733,82 @@ details > summary::-webkit-details-marker { display: none; }
   border-color: rgba(239, 68, 68, 0.4);
 }
 
+.q-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 0.5rem;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
 .q-item .notes-btn {
-  padding: 4px 8px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: var(--text);
+  padding: 6px 10px;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  border: none;
+  border-radius: 6px;
+  color: white;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s ease;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
 }
 
 .q-item .notes-btn:hover {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
 }
 
 .q-item .notes-btn.has-notes {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  box-shadow: 0 2px 6px rgba(6, 182, 212, 0.3);
+}
+
+.q-item .notes-btn.has-notes:hover {
+  background: linear-gradient(135deg, #0891b2, #0e7490);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);
+}
+
+.q-item .notes-btn.has-notes {
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+}
+
+.q-item .delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: none;
   color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+  flex-shrink: 0;
+}
+
+.q-item .delete-btn:hover {
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.q-item .delete-btn:active {
+  transform: translateY(0);
 }
 
 .q-item.done label {
@@ -721,3 +821,149 @@ details > summary::-webkit-details-marker { display: none; }
   color: var(--muted);
   margin-bottom: 2rem;
 }
+
+/* Notes Modal Styles */
+.notes-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.notes-modal.active {
+  display: flex;
+}
+
+.notes-modal-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+  width: 85%;
+  max-width: 1000px;
+  height: 70vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease;
+  margin: auto;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.notes-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card-2);
+}
+
+.notes-modal-header h2 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.notes-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.4rem;
+  transition: all 0.2s ease;
+}
+
+.notes-modal-close:hover {
+  background: var(--border);
+}
+
+.notes-modal-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.notes-textarea {
+  flex: 1;
+  padding: 2rem;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", "Courier New", monospace;
+  font-size: 1rem;
+  line-height: 1.8;
+  resize: none;
+  outline: none;
+}
+
+.notes-textarea::placeholder {
+  color: var(--muted);
+}
+
+.notes-modal-footer {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  border-top: 1px solid var(--border);
+  background: var(--card-2);
+  justify-content: flex-end;
+}
+
+.notes-modal-btn {
+  padding: 0.8rem 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.notes-modal-btn.save-btn {
+  background: var(--ok);
+  color: white;
+}
+
+.notes-modal-btn.save-btn:hover {
+  background: #16a34a;
+  opacity: 0.95;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.notes-modal-btn.cancel-btn {
+  background: var(--border);
+  color: var(--text);
+}
+
+.notes-modal-btn.cancel-btn:hover {
+  background: var(--card-2);
+  border: 1px solid var(--accent);
+  transform: translateY(-2px);
+}
+
