@@ -576,7 +576,7 @@ async function addQuestionFromSidebar(event) {
     return;
   }
 
-  const titleInput = document.getElementById("sidebarQTitleInput");
+  const titleInput = "";
   const categoryInput = document.getElementById("sidebarQCategoryInput");
   const difficultyInput = document.getElementById("sidebarQDifficultyInput");
   const linkInput = document.getElementById("sidebarQLinkInput");

@@ -101,14 +101,13 @@
 
           <form id="sidebarAddQuestionForm" class="sidebar-mini-form">
             <div class="mini-form-title">Add Question</div>
-            <input id="sidebarQTitleInput" type="text" placeholder="Question title" required />
+            <input id="sidebarQLinkInput" type="url" placeholder="https://problem-link" />
             <input id="sidebarQCategoryInput" type="text" list="categorySuggestions" placeholder="Topic name (e.g. Arrays)" required />
             <select id="sidebarQDifficultyInput" required>
               <option value="Easy">Easy</option>
               <option value="Medium" selected>Medium</option>
               <option value="Hard">Hard</option>
             </select>
-            <input id="sidebarQLinkInput" type="url" placeholder="https://problem-link" />
             <button id="sidebarAddQuestionBtn" type="submit">Add Question</button>
           </form>
         </div>
