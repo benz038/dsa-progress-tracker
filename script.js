@@ -103,6 +103,7 @@ const NOTES_KEY = "dsa-notes-v1";
 const DELETED_QUESTIONS_KEY = "dsa-deleted-questions-v1";
 const LOCAL_CUSTOM_QUESTIONS_KEY = "dsa-local-custom-questions-v1";
 const LOCAL_TEST_MODE_KEY = "dsa-local-test-mode-v1";
+const QUESTION_ORDER_KEY = "dsa-question-order-v1";
 const CLOUD_COLLECTION = "dsaProgress";
 const QUESTIONS_COLLECTION = "questions";
 const DIFFICULTY_OPTIONS = ["Easy", "Medium", "Hard"];
@@ -122,6 +123,7 @@ let sidebarStatusTimeout = null;
 let lastDeletedQuestion = null;
 let isLocalTestMode = false;
 let topToastTimeout = null;
+let draggedQuestionItem = null;
 
 function loadLocalTestMode() {
   const saved = localStorage.getItem(LOCAL_TEST_MODE_KEY);
@@ -230,12 +232,46 @@ function mergeQuestions() {
     seen.add(dedupeKey);
   });
 
+  applyQuestionOrder(merged);
   renderedQuestions = merged;
 }
 
 function questionKey(category, question) {
   if (question.id) return `qid__${question.id}`;
   return normalizeKey(category, question.title);
+}
+
+function loadQuestionOrder() {
+  try {
+    return JSON.parse(localStorage.getItem(QUESTION_ORDER_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveQuestionOrder(order) {
+  localStorage.setItem(QUESTION_ORDER_KEY, JSON.stringify(order));
+}
+
+function applyQuestionOrder(questionMap) {
+  const savedOrder = loadQuestionOrder();
+  for (const [category, questions] of Object.entries(questionMap)) {
+    const orderedKeys = Array.isArray(savedOrder[category]) ? savedOrder[category] : [];
+    if (!orderedKeys.length) continue;
+
+    const rank = new Map(orderedKeys.map((key, index) => [key, index]));
+    questions.sort((a, b) => {
+      const aRank = rank.has(questionKey(category, a)) ? rank.get(questionKey(category, a)) : Number.MAX_SAFE_INTEGER;
+      const bRank = rank.has(questionKey(category, b)) ? rank.get(questionKey(category, b)) : Number.MAX_SAFE_INTEGER;
+      return aRank - bRank;
+    });
+  }
+}
+
+function saveCategoryQuestionOrder(category, keys) {
+  const order = loadQuestionOrder();
+  order[category] = keys;
+  saveQuestionOrder(order);
 }
 
 function difficultyClass(difficulty) {
@@ -249,6 +285,21 @@ function slugToTitle(slug) {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function titleFromLink(link) {
+  if (!link) return "";
+
+  const leetCodeSlug = parseLeetCodeSlug(link);
+  if (leetCodeSlug) return slugToTitle(leetCodeSlug);
+
+  try {
+    const url = new URL(link);
+    const lastPathPart = url.pathname.split("/").filter(Boolean).pop();
+    return slugToTitle(lastPathPart || url.hostname.replace(/^www\./i, ""));
+  } catch {
+    return "";
+  }
 }
 
 function parseLeetCodeSlug(link) {
@@ -358,8 +409,8 @@ function resolveCategoryName(rawCategory) {
   return typed;
 }
 
-function showSidebarActionStatus(message, type = "info") {
-  const status = document.getElementById("sidebarActionStatus");
+function showSidebarStatus(statusId, message, type = "info") {
+  const status = document.getElementById(statusId);
   if (!status) return;
 
   status.textContent = message;
@@ -370,6 +421,14 @@ function showSidebarActionStatus(message, type = "info") {
   sidebarStatusTimeout = setTimeout(() => {
     status.classList.remove("show");
   }, 2400);
+}
+
+function showSidebarAddStatus(message, type = "info") {
+  showSidebarStatus("sidebarAddStatus", message, type);
+}
+
+function showSidebarActionStatus(message, type = "info") {
+  showSidebarStatus("sidebarDeleteStatus", message, type);
 }
 
 function showTopToast(message, type = "success") {
@@ -572,11 +631,11 @@ async function addQuestionFromForm(event) {
 async function addQuestionFromSidebar(event) {
   event.preventDefault();
   if (!canAdminManage()) {
-    showSidebarActionStatus("Only admin can add questions", "error");
+    showSidebarAddStatus("Only admin can add questions", "error");
     return;
   }
 
-  const titleInput = "";
+  const titleInput = document.getElementById("sidebarQTitleInput");
   const categoryInput = document.getElementById("sidebarQCategoryInput");
   const difficultyInput = document.getElementById("sidebarQDifficultyInput");
   const linkInput = document.getElementById("sidebarQLinkInput");
@@ -586,27 +645,38 @@ async function addQuestionFromSidebar(event) {
   let difficulty = difficultyInput?.value || "Medium";
   const link = (linkInput?.value || "").trim();
 
-  if (!title) {
-    showSidebarActionStatus("Question title is required", "error");
-    return;
-  }
-
   if (!DIFFICULTY_OPTIONS.includes(difficulty)) {
-    showSidebarActionStatus("Invalid difficulty", "error");
+    showSidebarAddStatus("Invalid difficulty", "error");
     return;
   }
 
   if (link && !/^https?:\/\//i.test(link)) {
-    showSidebarActionStatus("Link must start with http:// or https://", "error");
+    showSidebarAddStatus("Link must start with http:// or https://", "error");
+    return;
+  }
+
+  if (!title && !link) {
+    showSidebarAddStatus("Enter a question title or problem link", "error");
     return;
   }
 
   try {
-    showSidebarActionStatus("Adding question...", "info");
+    showSidebarAddStatus("Adding question...", "info");
 
     const lcMeta = await fetchLeetCodeMetaFromLink(link);
-    if (lcMeta.title) title = lcMeta.title;
-    if (lcMeta.difficulty) difficulty = lcMeta.difficulty;
+    if (lcMeta.title) {
+      title = lcMeta.title;
+      if (titleInput) titleInput.value = lcMeta.title;
+    }
+    if (lcMeta.difficulty) {
+      difficulty = lcMeta.difficulty;
+      if (difficultyInput) difficultyInput.value = lcMeta.difficulty;
+    }
+
+    if (!title) {
+      title = titleFromLink(link) || "Untitled Question";
+      if (titleInput) titleInput.value = title;
+    }
 
     if (canUseCloudQuestions()) {
       await db.collection(QUESTIONS_COLLECTION).add({
@@ -629,14 +699,14 @@ async function addQuestionFromSidebar(event) {
     if (linkInput) linkInput.value = "";
     if (difficultyInput) difficultyInput.value = "Medium";
 
-    showSidebarActionStatus(
+    showSidebarAddStatus(
       canUseCloudQuestions() ? "Question added successfully" : "Question added locally",
       "success"
     );
     showTopToast("Question added successfully", "success");
   } catch (error) {
     console.error("Failed to add question from sidebar:", error);
-    showSidebarActionStatus("Failed to add question", "error");
+    showSidebarAddStatus("Failed to add question", "error");
     showTopToast("Failed to add question", "error");
   }
 }
@@ -1106,6 +1176,7 @@ async function syncToCloud() {
     dates: loadDateState(),
     notes: loadNotes(),
     deletedQuestions: loadDeletedQuestions(),
+    questionOrder: loadQuestionOrder(),
     theme: document.documentElement.getAttribute("data-theme") || "dark",
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
@@ -1129,6 +1200,7 @@ async function loadFromCloud(uid) {
       if (data.dates && typeof data.dates === "object") saveDateState(data.dates);
       if (data.notes && typeof data.notes === "object") saveNotes(data.notes);
       if (data.deletedQuestions && typeof data.deletedQuestions === "object") saveDeletedQuestions(data.deletedQuestions);
+      if (data.questionOrder && typeof data.questionOrder === "object") saveQuestionOrder(data.questionOrder);
       if (data.theme === "dark" || data.theme === "light") {
         applyTheme(data.theme);
         saveLocalTheme(data.theme);
@@ -1210,6 +1282,8 @@ function initFirebaseAuth() {
     try {
       setSyncStatus("Loading cloud data...");
       await loadFromCloud(user.uid);
+      mergeQuestions();
+      render();
       updateProgress();
       reapplyCheckboxesFromState();
       setSyncStatus("Synced");
@@ -1224,6 +1298,7 @@ function initFirebaseAuth() {
           if (data.dates && typeof data.dates === "object") saveDateState(data.dates);
           if (data.notes && typeof data.notes === "object") saveNotes(data.notes);
           if (data.deletedQuestions && typeof data.deletedQuestions === "object") saveDeletedQuestions(data.deletedQuestions);
+          if (data.questionOrder && typeof data.questionOrder === "object") saveQuestionOrder(data.questionOrder);
           if (data.theme === "dark" || data.theme === "light") {
             applyTheme(data.theme);
             saveLocalTheme(data.theme);
@@ -1433,6 +1508,40 @@ function updateProgress() {
   }
 }
 
+function renumberQuestionList(list) {
+  list.querySelectorAll(".q-number").forEach((badge, index) => {
+    badge.textContent = String(index + 1);
+  });
+}
+
+function syncRenderedOrderFromList(category, list) {
+  const keys = [...list.querySelectorAll(".q-item")]
+    .map((item) => item.dataset.key)
+    .filter(Boolean);
+  const byKey = new Map((renderedQuestions[category] || []).map((question) => [questionKey(category, question), question]));
+  renderedQuestions[category] = keys.map((key) => byKey.get(key)).filter(Boolean);
+  saveCategoryQuestionOrder(category, keys);
+}
+
+function getDragAfterElement(list, y) {
+  const draggableItems = [...list.querySelectorAll(".q-item:not(.dragging)")];
+  return draggableItems.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset, element: child };
+    }
+    return closest;
+  }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+}
+
+function persistDraggedQuestionOrder(category, list) {
+  syncRenderedOrderFromList(category, list);
+  renumberQuestionList(list);
+  updateProgress();
+  scheduleCloudSync();
+}
+
 function render() {
   const root = document.getElementById("categories");
   const state = loadState();
@@ -1454,6 +1563,22 @@ function render() {
 
     const list = document.createElement("div");
     list.className = "q-list";
+    list.addEventListener("dragover", (event) => {
+      if (!draggedQuestionItem || draggedQuestionItem.dataset.category !== category) return;
+      event.preventDefault();
+      const afterElement = getDragAfterElement(list, event.clientY);
+      if (!afterElement) {
+        list.appendChild(draggedQuestionItem);
+      } else {
+        list.insertBefore(draggedQuestionItem, afterElement);
+      }
+    });
+
+    list.addEventListener("drop", (event) => {
+      if (!draggedQuestionItem || draggedQuestionItem.dataset.category !== category) return;
+      event.preventDefault();
+      persistDraggedQuestionOrder(category, list);
+    });
 
     questions.forEach((question, index) => {
       const key = questionKey(category, question);
@@ -1462,6 +1587,16 @@ function render() {
 
       const item = document.createElement("div");
       item.className = `q-item ${checked ? "done" : ""}`;
+      item.draggable = true;
+      item.dataset.key = key;
+      item.dataset.category = category;
+
+      const dragHandle = document.createElement("button");
+      dragHandle.type = "button";
+      dragHandle.className = "drag-handle";
+      dragHandle.textContent = "⋮⋮";
+      dragHandle.title = "Drag to rearrange";
+      dragHandle.setAttribute("aria-label", `Rearrange ${question.title}`);
 
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
@@ -1520,6 +1655,20 @@ function render() {
         notesBtn.classList.add("has-notes");
       }
 
+      item.addEventListener("dragstart", (event) => {
+        draggedQuestionItem = item;
+        item.classList.add("dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", key);
+      });
+
+      item.addEventListener("dragend", () => {
+        item.classList.remove("dragging");
+        draggedQuestionItem = null;
+        persistDraggedQuestionOrder(category, list);
+      });
+
+      item.appendChild(dragHandle);
       item.appendChild(checkbox);
       item.appendChild(qNumBadge);
       item.appendChild(label);

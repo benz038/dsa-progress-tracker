@@ -1107,10 +1107,39 @@ details > summary::-webkit-details-marker { display: none; }
   transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.q-item.dragging {
+  opacity: 0.55;
+  border-color: rgba(34, 197, 94, 0.7);
+  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.2);
+}
+
 .q-item:hover {
   border-color: rgba(96, 165, 250, 0.58);
   transform: translateY(-1px);
   box-shadow: 0 8px 18px rgba(2, 132, 199, 0.2);
+}
+
+.drag-handle {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.26);
+  color: var(--muted);
+  cursor: grab;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle:hover {
+  color: var(--text);
+  border-color: rgba(96, 165, 250, 0.58);
 }
 
 .q-item input[type="checkbox"] {
@@ -1483,4 +1512,3 @@ details > summary::-webkit-details-marker { display: none; }
   border: 1px solid var(--accent);
   transform: translateY(-2px);
 }
-

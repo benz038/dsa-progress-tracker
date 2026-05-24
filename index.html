@@ -101,6 +101,7 @@
 
           <form id="sidebarAddQuestionForm" class="sidebar-mini-form">
             <div class="mini-form-title">Add Question</div>
+            <input id="sidebarQTitleInput" type="text" placeholder="Question title" />
             <input id="sidebarQLinkInput" type="url" placeholder="https://problem-link" />
             <input id="sidebarQCategoryInput" type="text" list="categorySuggestions" placeholder="Topic name (e.g. Arrays)" required />
             <select id="sidebarQDifficultyInput" required>
@@ -110,6 +111,7 @@
             </select>
             <button id="sidebarAddQuestionBtn" type="submit">Add Question</button>
           </form>
+          <div id="sidebarAddStatus" class="sidebar-action-status" aria-live="polite"></div>
         </div>
       </div>
 
@@ -131,7 +133,7 @@
 
           <button id="sidebarUndoDeleteBtn" type="button" class="sidebar-undo-btn" disabled>↩ Undo Last Delete</button>
 
-          <div id="sidebarActionStatus" class="sidebar-action-status" aria-live="polite"></div>
+          <div id="sidebarDeleteStatus" class="sidebar-action-status" aria-live="polite"></div>
         </div>
       </div>
     </aside>
