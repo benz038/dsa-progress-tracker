@@ -101,8 +101,6 @@ const THEME_KEY = "dsa-theme-v1";
 const DATE_STATE_KEY = "dsa-progress-dates-v1";
 const NOTES_KEY = "dsa-notes-v1";
 const DELETED_QUESTIONS_KEY = "dsa-deleted-questions-v1";
-const LOCAL_CUSTOM_QUESTIONS_KEY = "dsa-local-custom-questions-v1";
-const LOCAL_TEST_MODE_KEY = "dsa-local-test-mode-v1";
 const QUESTION_ORDER_KEY = "dsa-question-order-v1";
 const CLOUD_COLLECTION = "dsaProgress";
 const QUESTIONS_COLLECTION = "questions";
@@ -121,21 +119,11 @@ let questionsUnsubscribe = null;
 let isAdminUser = false;
 let sidebarStatusTimeout = null;
 let lastDeletedQuestion = null;
-let isLocalTestMode = false;
 let topToastTimeout = null;
 let draggedQuestionItem = null;
 
-function loadLocalTestMode() {
-  const saved = localStorage.getItem(LOCAL_TEST_MODE_KEY);
-  if (saved === null) {
-    localStorage.setItem(LOCAL_TEST_MODE_KEY, "1");
-    return true;
-  }
-  return saved === "1";
-}
-
 function canAdminManage() {
-  return isAdminUser || isLocalTestMode;
+  return isAdminUser;
 }
 
 function canUseCloudQuestions() {
@@ -218,17 +206,6 @@ function mergeQuestions() {
 
     if (!merged[category]) merged[category] = [];
     merged[category].push(makeQuestion(q.title, q.difficulty, q.link, q.id));
-    seen.add(dedupeKey);
-  });
-
-  const localCustomQuestions = loadLocalCustomQuestions();
-  localCustomQuestions.forEach((q) => {
-    const category = (q.category || "General").trim() || "General";
-    const dedupeKey = `${category.toLowerCase()}::${(q.title || "").toLowerCase()}`;
-    if (!q.title || seen.has(dedupeKey)) return;
-
-    if (!merged[category]) merged[category] = [];
-    merged[category].push(makeQuestion(q.title, q.difficulty, q.link, q.id || ""));
     seen.add(dedupeKey);
   });
 
@@ -468,34 +445,21 @@ function updateAddQuestionUI() {
   const hasMainAddSection = !!(form && status && submitBtn);
 
   if (!firebaseConfigured()) {
-    if (isLocalTestMode) {
-      if (hasMainAddSection) {
-        form.style.display = "block";
-        status.textContent = "Local test mode: add/delete enabled without Firebase";
-        submitBtn.disabled = false;
-      }
-      if (syncBtn) syncBtn.disabled = true;
-      if (sidebarAddBtn) sidebarAddBtn.disabled = false;
-      if (sidebarDeleteBtn) sidebarDeleteBtn.disabled = false;
-      if (navAddBtn) navAddBtn.style.display = "inline-flex";
-      if (navDeleteBtn) navDeleteBtn.style.display = "inline-flex";
-    } else {
-      if (hasMainAddSection) {
-        status.textContent = "Configure Firebase to add questions";
-        submitBtn.disabled = true;
-        form.style.display = "none";
-      }
-      if (syncBtn) syncBtn.disabled = true;
-      if (sidebarAddBtn) sidebarAddBtn.disabled = true;
-      if (sidebarDeleteBtn) sidebarDeleteBtn.disabled = true;
-      if (navAddBtn) navAddBtn.style.display = "none";
-      if (navDeleteBtn) navDeleteBtn.style.display = "none";
+    if (hasMainAddSection) {
+      status.textContent = "Configure Firebase to add questions";
+      submitBtn.disabled = true;
+      form.style.display = "none";
     }
+    if (syncBtn) syncBtn.disabled = true;
+    if (sidebarAddBtn) sidebarAddBtn.disabled = true;
+    if (sidebarDeleteBtn) sidebarDeleteBtn.disabled = true;
+    if (navAddBtn) navAddBtn.style.display = "none";
+    if (navDeleteBtn) navDeleteBtn.style.display = "none";
     updateUndoButtonState();
     return;
   }
 
-  if (!currentUser && !isLocalTestMode) {
+  if (!currentUser) {
     if (hasMainAddSection) {
       status.textContent = "Only admin can add questions. Sign in as admin.";
       submitBtn.disabled = true;
@@ -527,9 +491,7 @@ function updateAddQuestionUI() {
 
   if (hasMainAddSection) {
     form.style.display = "block";
-    status.textContent = isLocalTestMode && !isAdminUser
-      ? "Local test mode: add/delete enabled"
-      : "Admin mode: you can add questions for all users";
+    status.textContent = "Admin mode: you can add questions for all users";
     submitBtn.disabled = false;
   }
   if (syncBtn) syncBtn.disabled = false;
@@ -592,29 +554,25 @@ async function addQuestionFromForm(event) {
       if (status) status.textContent = "LeetCode auto-fetch unavailable (CORS). Saving with entered values...";
     }
 
-    if (canUseCloudQuestions()) {
-      await db.collection(QUESTIONS_COLLECTION).add({
-        title,
-        category,
-        difficulty,
-        link,
-        isActive: true,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        createdBy: currentUser.uid,
-        createdByEmail: currentUser.email || ""
-      });
-    } else {
-      addLocalCustomQuestion({ title, category, difficulty, link });
-      mergeQuestions();
-      render();
+    if (!canUseCloudQuestions()) {
+      throw new Error("Cloud questions are not available");
     }
+
+    await db.collection(QUESTIONS_COLLECTION).add({
+      title,
+      category,
+      difficulty,
+      link,
+      isActive: true,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: currentUser.uid,
+      createdByEmail: currentUser.email || ""
+    });
 
     if (titleInput) titleInput.value = "";
     if (linkInput) linkInput.value = "";
     if (status) {
-      status.textContent = canUseCloudQuestions()
-        ? "Question added"
-        : "Question added (local test mode)";
+      status.textContent = "Question added";
     }
     showTopToast("Question added successfully", "success");
   } catch (error) {
@@ -678,31 +636,26 @@ async function addQuestionFromSidebar(event) {
       if (titleInput) titleInput.value = title;
     }
 
-    if (canUseCloudQuestions()) {
-      await db.collection(QUESTIONS_COLLECTION).add({
-        title,
-        category,
-        difficulty,
-        link,
-        isActive: true,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        createdBy: currentUser.uid,
-        createdByEmail: currentUser.email || ""
-      });
-    } else {
-      addLocalCustomQuestion({ title, category, difficulty, link });
-      mergeQuestions();
-      render();
+    if (!canUseCloudQuestions()) {
+      throw new Error("Cloud questions are not available");
     }
+
+    await db.collection(QUESTIONS_COLLECTION).add({
+      title,
+      category,
+      difficulty,
+      link,
+      isActive: true,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: currentUser.uid,
+      createdByEmail: currentUser.email || ""
+    });
 
     if (titleInput) titleInput.value = "";
     if (linkInput) linkInput.value = "";
     if (difficultyInput) difficultyInput.value = "Medium";
 
-    showSidebarAddStatus(
-      canUseCloudQuestions() ? "Question added successfully" : "Question added locally",
-      "success"
-    );
+    showSidebarAddStatus("Question added successfully", "success");
     showTopToast("Question added successfully", "success");
   } catch (error) {
     console.error("Failed to add question from sidebar:", error);
@@ -762,18 +715,6 @@ async function undoLastDeleteFromSidebar() {
       mergeQuestions();
       render();
       scheduleCloudSync();
-    } else if (snapshot.source === "local-custom") {
-      const items = loadLocalCustomQuestions();
-      items.push({
-        id: snapshot.question.id || `local__${Date.now()}__undo`,
-        title: snapshot.question.title,
-        category: snapshot.category || "General",
-        difficulty: snapshot.question.difficulty || "Medium",
-        link: snapshot.question.link || ""
-      });
-      saveLocalCustomQuestions(items);
-      mergeQuestions();
-      render();
     } else if (snapshot.source === "cloud") {
       if (!db || !currentUser) {
         throw new Error("Cloud is not available");
@@ -827,21 +768,6 @@ async function deleteQuestionByNumber(category, questionNumber) {
       difficulty: target.difficulty,
       link: target.link
     });
-  } else if (target.id && String(target.id).startsWith("local__")) {
-    removeLocalCustomQuestion(target.id);
-    rememberLastDeletedQuestion({
-      source: "local-custom",
-      category,
-      question: {
-        id: target.id,
-        title: target.title,
-        difficulty: target.difficulty || "Medium",
-        link: target.link || ""
-      }
-    });
-    mergeQuestions();
-    render();
-    showTopToast(`Deleted: ${target.title}`, "success");
   } else {
     const deletedQuestions = loadDeletedQuestions();
     deletedQuestions[normalizeKey(category, target.title)] = true;
@@ -1043,36 +969,6 @@ function saveDeletedQuestions(state) {
   localStorage.setItem(DELETED_QUESTIONS_KEY, JSON.stringify(state));
 }
 
-function loadLocalCustomQuestions() {
-  try {
-    return JSON.parse(localStorage.getItem(LOCAL_CUSTOM_QUESTIONS_KEY)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function saveLocalCustomQuestions(items) {
-  localStorage.setItem(LOCAL_CUSTOM_QUESTIONS_KEY, JSON.stringify(items));
-}
-
-function addLocalCustomQuestion(payload) {
-  const items = loadLocalCustomQuestions();
-  items.push({
-    id: `local__${Date.now()}__${Math.random().toString(36).slice(2, 8)}`,
-    title: payload.title,
-    category: payload.category,
-    difficulty: payload.difficulty,
-    link: payload.link || ""
-  });
-  saveLocalCustomQuestions(items);
-}
-
-function removeLocalCustomQuestion(localId) {
-  const items = loadLocalCustomQuestions();
-  const next = items.filter((x) => x.id !== localId);
-  saveLocalCustomQuestions(next);
-}
-
 function saveNotes(notes) {
   localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
 }
@@ -1225,16 +1121,16 @@ function updateAuthUI(user) {
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline-block";
     if (adminBadge) {
-      adminBadge.textContent = isAdminUser ? "ADMIN" : (isLocalTestMode ? "TEST" : "ADMIN");
+      adminBadge.textContent = "ADMIN";
       adminBadge.style.display = canAdminManage() ? "inline-flex" : "none";
     }
   } else {
-    authUser.textContent = isLocalTestMode ? "Local test mode" : "Not signed in";
+    authUser.textContent = "Not signed in";
     loginBtn.style.display = "inline-block";
     logoutBtn.style.display = "none";
     if (adminBadge) {
-      adminBadge.textContent = isLocalTestMode ? "TEST" : "ADMIN";
-      adminBadge.style.display = isLocalTestMode ? "inline-flex" : "none";
+      adminBadge.textContent = "ADMIN";
+      adminBadge.style.display = "none";
     }
     setSyncStatus("Local only");
   }
@@ -1874,7 +1770,6 @@ function wireActions() {
   updateUndoButtonState();
 }
 
-isLocalTestMode = loadLocalTestMode();
 mergeQuestions();
 initTheme();
 render();
