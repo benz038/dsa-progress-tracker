@@ -908,8 +908,10 @@ function openNotesModal(key, questionTitle) {
   
   title.textContent = `Edit Notes - ${questionTitle}`;
   textarea.value = existingNote;
+  textarea.scrollTop = 0;
+  textarea.scrollLeft = 0;
   modal.classList.add("active");
-  updateNotesLineNumbers();
+  updateNotesEditorView();
   textarea.focus();
 }
 
@@ -943,6 +945,96 @@ function updateNotesLineNumbers() {
   const lineCount = Math.max(1, textarea.value.split("\n").length);
   lineNumbers.innerHTML = Array.from({ length: lineCount }, (_, i) => `<span>${i + 1}</span>`).join("");
   lineNumbers.scrollTop = textarea.scrollTop;
+}
+
+function escapeHtml(value) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function highlightCppCode(code) {
+  if (!code) return " ";
+
+  const cppKeywords = new Set([
+    "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor",
+    "bool", "break", "case", "catch", "char", "char16_t", "char32_t", "class",
+    "compl", "const", "constexpr", "continue", "decltype", "default", "delete",
+    "do", "double", "else", "enum", "explicit", "export", "extern", "false",
+    "float", "for", "friend", "goto", "if", "inline", "int", "long", "mutable",
+    "namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator",
+    "or", "or_eq", "private", "protected", "public", "return", "short",
+    "signed", "sizeof", "static", "struct", "switch", "template", "this",
+    "throw", "true", "try", "typedef", "typename", "union", "unsigned",
+    "using", "virtual", "void", "volatile", "while", "xor", "xor_eq"
+  ]);
+  const stdTypes = new Set([
+    "array", "deque", "list", "map", "pair", "priority_queue", "queue", "set",
+    "stack", "string", "unordered_map", "unordered_set", "vector"
+  ]);
+  const declarationKeywords = new Set([
+    "auto", "bool", "char", "char16_t", "char32_t", "double", "float", "int",
+    "long", "short", "signed", "string", "unsigned", "void"
+  ]);
+  const tokenPattern = /(\/\/.*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b|==|!=|<=|>=|&&|\|\||[-+*/%=<>!&|^~?:;,.()[\]{}])/g;
+  let highlighted = "";
+  let lastIndex = 0;
+  let previousKeyword = "";
+  let declarationMode = false;
+
+  code.replace(tokenPattern, (token, ...args) => {
+    const index = args[args.length - 2];
+    const safeToken = escapeHtml(token);
+    let tokenClass = "";
+
+    highlighted += escapeHtml(code.slice(lastIndex, index));
+
+    const hasCallParen = /^\s*\(/.test(code.slice(index + token.length));
+
+    if (/^\/\//.test(token) || /^\/\*/.test(token)) tokenClass = "token-comment";
+    else if (/^["']/.test(token)) tokenClass = "token-string";
+    else if (/^\d/.test(token)) tokenClass = "token-number";
+    else if (cppKeywords.has(token)) tokenClass = "token-keyword";
+    else if (stdTypes.has(token)) tokenClass = "token-type";
+    else if (previousKeyword === "class" || previousKeyword === "struct") tokenClass = "token-class-name";
+    else if (/^[A-Za-z_]\w*$/.test(token) && hasCallParen) tokenClass = "token-function";
+    else if (/^[A-Za-z_]\w*$/.test(token) && declarationMode) tokenClass = "token-variable-decl";
+    else if (/^[()[\]{}]$/.test(token)) tokenClass = "token-bracket";
+    else if (/^[-+*/%=<>!&|^~?:;,.]+$/.test(token)) tokenClass = "token-operator";
+
+    highlighted += tokenClass ? `<span class="${tokenClass}">${safeToken}</span>` : safeToken;
+
+    if (cppKeywords.has(token) || stdTypes.has(token)) {
+      previousKeyword = token;
+      declarationMode = declarationKeywords.has(token) || stdTypes.has(token);
+    } else if (/^[A-Za-z_]\w*$/.test(token)) {
+      previousKeyword = "";
+    } else if (/^[=;:{}]$/.test(token)) {
+      declarationMode = false;
+      previousKeyword = "";
+    }
+
+    lastIndex = index + token.length;
+    return token;
+  });
+
+  highlighted += escapeHtml(code.slice(lastIndex));
+  return highlighted;
+}
+
+function updateNotesHighlight() {
+  const textarea = document.getElementById("notesTextarea");
+  const highlight = document.getElementById("notesHighlight");
+  if (!textarea || !highlight) return;
+
+  highlight.innerHTML = highlightCppCode(textarea.value);
+  highlight.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
+}
+
+function updateNotesEditorView() {
+  updateNotesLineNumbers();
+  updateNotesHighlight();
 }
 
 function setSyncStatus(text) {
@@ -1654,8 +1746,8 @@ function wireActions() {
   }
 
   if (notesTextarea) {
-    notesTextarea.addEventListener("input", updateNotesLineNumbers);
-    notesTextarea.addEventListener("scroll", updateNotesLineNumbers);
+    notesTextarea.addEventListener("input", updateNotesEditorView);
+    notesTextarea.addEventListener("scroll", updateNotesEditorView);
     notesTextarea.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         closeNotesModal();
@@ -1674,7 +1766,7 @@ function wireActions() {
     });
   }
 
-  updateNotesLineNumbers();
+  updateNotesEditorView();
   updateUndoButtonState();
 }
 

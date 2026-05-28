@@ -215,7 +215,10 @@
           </div>
           <div class="notes-editor-content">
             <div id="notesLineNumbers" class="notes-line-numbers"><span>1</span></div>
-            <textarea id="notesTextarea" class="notes-textarea" spellcheck="false" placeholder="// Write your notes or code here..."></textarea>
+            <div class="notes-code-pane">
+              <pre id="notesHighlight" class="notes-highlight" aria-hidden="true"></pre>
+              <textarea id="notesTextarea" class="notes-textarea" spellcheck="false" placeholder="// Write your notes or code here..."></textarea>
+            </div>
           </div>
         </div>
       </div>

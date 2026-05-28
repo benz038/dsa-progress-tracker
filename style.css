@@ -1450,25 +1450,68 @@ details > summary::-webkit-details-marker { display: none; }
   display: block;
 }
 
+.notes-code-pane {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: #0b1220;
+  overflow: hidden;
+}
+
+.notes-highlight,
 .notes-textarea {
-  flex: 1;
   width: 100%;
   height: 100%;
   padding: 1rem 1.05rem;
   border: none;
-  background: #0b1220;
-  color: #e2e8f0;
   font-family: "Consolas", "Monaco", "Menlo", "Ubuntu Mono", monospace;
   font-size: 0.98rem;
   line-height: 1.65;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.notes-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  min-height: 100%;
+  color: #d4d4d4;
+  pointer-events: none;
+  transition: none;
+}
+
+.notes-textarea {
+  position: relative;
+  display: block;
+  background: transparent;
+  color: transparent;
+  caret-color: #f8fafc;
   resize: none;
   outline: none;
-  tab-size: 2;
 }
 
 .notes-textarea::placeholder {
   color: #64748b;
 }
+
+.notes-textarea::selection {
+  background: rgba(59, 130, 246, 0.36);
+  color: transparent;
+}
+
+.token-keyword { color: #c678dd; }
+.token-class-name { color: #e5c07b; }
+.token-type { color: #e06c75; }
+.token-variable-decl { color: #e06c75; }
+.token-function { color: #61afef; }
+.token-string { color: #98c379; }
+.token-number { color: #d19a66; }
+.token-comment { color: #5c6370; font-style: italic; }
+.token-operator { color: #56b6c2; }
+.token-bracket { color: #56b6c2; }
 
 .notes-modal-footer {
   display: flex;
