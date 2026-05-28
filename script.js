@@ -1,4 +1,100 @@
-const DEFAULT_QUESTIONS = {"Arrays":[{"title":"Set Matrix Zeroes","link":"https://leetcode.com/problems/set-matrix-zeroes/","difficulty":"Medium"},{"title":"Pascal's Triangle I","link":"https://leetcode.com/problems/pascals-triangle/","difficulty":"Easy"},{"title":"Kadane's Algorithm","link":"https://leetcode.com/problems/maximum-subarray/","difficulty":"Medium"},{"title":"Find the Duplicate Number","link":"https://leetcode.com/problems/find-the-duplicate-number/","difficulty":"Medium"},{"title":"Find the Repeating and Missing Number","link":"https://leetcode.com/problems/set-mismatch/","difficulty":"Easy"},{"title":"Majority Element-I","link":"https://leetcode.com/problems/majority-element/","difficulty":"Easy"},{"title":"Majority Element-II","link":"https://leetcode.com/problems/majority-element-ii/","difficulty":"Medium"},{"title":"Two Sum","link":"https://leetcode.com/problems/two-sum/","difficulty":"Easy"},{"title":"3 Sum","link":"https://leetcode.com/problems/3sum/","difficulty":"Medium"},{"title":"4 Sum","link":"https://leetcode.com/problems/4sum/","difficulty":"Medium"},{"title":"Longest Consecutive Sequence in an Array","link":"https://leetcode.com/problems/longest-consecutive-sequence/","difficulty":"Medium"},{"title":"Largest Subarray with K Sum","link":"https://practice.geeksforgeeks.org/problems/largest-subarray-with-0-sum/1","difficulty":"Medium"},{"title":"Remove Duplicates from Sorted Array","link":"https://leetcode.com/problems/remove-duplicates-from-sorted-array/","difficulty":"Easy"},{"title":"Maximum Consecutive Ones","link":"https://leetcode.com/problems/max-consecutive-ones/","difficulty":"Easy"},{"title":"Trapping Rainwater","link":"https://leetcode.com/problems/trapping-rain-water/","difficulty":"Hard"},{"title":"Search in matrix","link":"https://leetcode.com/problems/search-a-2d-matrix/","difficulty":"Medium"},{"title":"Sort an array of 0’, 1, 2","link":"https://leetcode.com/problems/sort-colors/","difficulty":"Medium"}],"Strings":[{"title":"Longest Substring Without Repeating Characters","link":"https://leetcode.com/problems/longest-substring-without-repeating-characters/","difficulty":"Medium"},{"title":"Reverse Every Word in a String","link":"https://leetcode.com/problems/reverse-words-in-a-string/","difficulty":"Medium"},{"title":"Longest Common Prefix","link":"https://leetcode.com/problems/longest-common-prefix/","difficulty":"Easy"},{"title":"Valid Anagram","link":"https://leetcode.com/problems/valid-anagram/","difficulty":"Easy"}],"Linked List":[{"title":"Reverse a Linked List","link":"https://leetcode.com/problems/reverse-linked-list/","difficulty":"Easy"},{"title":"Find Middle of Linked List","link":"https://leetcode.com/problems/middle-of-the-linked-list/","difficulty":"Easy"},{"title":"Merge Two Sorted Lists","link":"https://leetcode.com/problems/merge-two-sorted-lists/","difficulty":"Easy"},{"title":"Remove Nth Node from the Back of the Linked List","link":"https://leetcode.com/problems/remove-nth-node-from-end-of-list/","difficulty":"Medium"},{"title":"Add Two Numbers as LinkedList","link":"https://leetcode.com/problems/add-two-numbers/","difficulty":"Medium"},{"title":"Delete Node in a Linked List O(1)","link":"https://leetcode.com/problems/delete-node-in-a-linked-list/","difficulty":"Medium"},{"title":"Find the Intersection Point of Y Linked List","link":"https://leetcode.com/problems/intersection-of-two-linked-lists/","difficulty":"Easy"},{"title":"Detect a Loop in Linked List","link":"https://leetcode.com/problems/linked-list-cycle/","difficulty":"Easy"}],"Greedy":[{"title":"N Meetings in One Room","link":"https://practice.geeksforgeeks.org/problems/n-meetings-in-one-room-1587115620/1","difficulty":"Medium"},{"title":"Minimum Number of Platforms Required for a Railway","link":"https://practice.geeksforgeeks.org/problems/minimum-platforms-1587115620/1","difficulty":"Medium"},{"title":"Job Sequencing Problem","link":"https://practice.geeksforgeeks.org/problems/job-sequencing-problem-1587115620/1","difficulty":"Medium"},{"title":"Minimum Coins","link":"https://leetcode.com/problems/coin-change/","difficulty":"Medium"},{"title":"Assign Cookies","link":"https://leetcode.com/problems/assign-cookies/","difficulty":"Easy"}],"Binary Search / Heap":[{"title":"Single Element in Sorted Array","link":"https://leetcode.com/problems/single-element-in-a-sorted-array/","difficulty":"Medium"},{"title":"Top K Frequent Elements","link":"https://leetcode.com/problems/top-k-frequent-elements/","difficulty":"Medium"}],"Stack / Queue":[{"title":"Implement Stack using Arrays","link":"https://www.geeksforgeeks.org/problems/implement-stack-using-array/1","difficulty":"Easy"},{"title":"Implement Queue using Arrays","link":"https://www.geeksforgeeks.org/problems/implement-queue-using-array/1","difficulty":"Easy"},{"title":"Balanced Parenthesis","link":"https://leetcode.com/problems/valid-parentheses/","difficulty":"Easy"},{"title":"Next Greater Element","link":"https://leetcode.com/problems/next-greater-element-i/","difficulty":"Easy"},{"title":"Next Smaller Element","link":"https://www.geeksforgeeks.org/problems/help-classmates--141631/1","difficulty":"Medium"},{"title":"LRU Cache","link":"https://leetcode.com/problems/lru-cache/","difficulty":"Medium"},{"title":"Largest Rectangle in a Histogram","link":"https://leetcode.com/problems/largest-rectangle-in-histogram/","difficulty":"Hard"},{"title":"Sliding Window Maximum","link":"https://leetcode.com/problems/sliding-window-maximum/","difficulty":"Hard"},{"title":"Stock Span Problem","link":"https://leetcode.com/problems/online-stock-span/","difficulty":"Medium"}],"Graph":[{"title":"Rotten Oranges","link":"https://leetcode.com/problems/rotting-oranges/","difficulty":"Medium"},{"title":"Clone Graph","link":"https://leetcode.com/problems/clone-graph/","difficulty":"Medium"},{"title":"DFS","link":"https://www.geeksforgeeks.org/problems/depth-first-traversal-for-a-graph/1","difficulty":"Easy"},{"title":"Traversal Techniques","link":"https://leetcode.com/problems/binary-tree-level-order-traversal/","difficulty":"Medium"},{"title":"Detect a Cycle in Undirected Graph using DFS","link":"https://leetcode.com/problems/course-schedule/","difficulty":"Medium"},{"title":"Detect a Cycle in Directed Graph using DFS","link":"https://www.geeksforgeeks.org/problems/detect-cycle-in-a-directed-graph/1","difficulty":"Medium"},{"title":"Topological Sort BFS","link":"https://leetcode.com/problems/course-schedule-ii/","difficulty":"Medium"},{"title":"Topological Sort DFS","link":"https://www.geeksforgeeks.org/problems/topological-sort/1","difficulty":"Medium"},{"title":"Number of Islands (Grid and Graph)","link":"https://leetcode.com/problems/number-of-islands/","difficulty":"Medium"}],"Binary Tree":[{"title":"Inorder Traversal","link":"https://leetcode.com/problems/binary-tree-inorder-traversal/","difficulty":"Easy"},{"title":"Preorder Traversal","link":"https://leetcode.com/problems/binary-tree-preorder-traversal/","difficulty":"Easy"},{"title":"Postorder Traversal","link":"https://leetcode.com/problems/binary-tree-postorder-traversal/","difficulty":"Easy"},{"title":"Right / Left View of Binary Tree","link":"https://leetcode.com/problems/binary-tree-right-side-view/","difficulty":"Medium"},{"title":"Bottom View of Binary Tree","link":"https://www.geeksforgeeks.org/problems/bottom-view-of-binary-tree/1","difficulty":"Medium"},{"title":"Top View of Binary Tree","link":"https://www.geeksforgeeks.org/problems/top-view-of-binary-tree/1","difficulty":"Medium"},{"title":"Pre, Post, Inorder in One Traversal","link":"https://www.geeksforgeeks.org/problems/preorder-traversal-and-bst4006/1","difficulty":"Medium"},{"title":"Print Root to Leaf Path in Binary Tree","link":"https://www.geeksforgeeks.org/problems/root-to-leaf-paths/1","difficulty":"Medium"},{"title":"Level Order Traversal","link":"https://leetcode.com/problems/binary-tree-level-order-traversal/","difficulty":"Medium"},{"title":"Maximum Depth in Binary Tree","link":"https://leetcode.com/problems/maximum-depth-of-binary-tree/","difficulty":"Easy"},{"title":"Diameter of Binary Tree","link":"https://leetcode.com/problems/diameter-of-binary-tree/","difficulty":"Easy"},{"title":"Check for Balanced Binary Tree","link":"https://leetcode.com/problems/balanced-binary-tree/","difficulty":"Easy"},{"title":"LCA in Binary Tree","link":"https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/","difficulty":"Medium"},{"title":"Check if Two Trees are Identical or Not","link":"https://leetcode.com/problems/same-tree/","difficulty":"Easy"},{"title":"Zig Zag or Spiral Traversal","link":"https://leetcode.com/problems/binary-tree-zigzag-level-order-traversal/","difficulty":"Medium"},{"title":"Boundary Traversal","link":"https://www.geeksforgeeks.org/problems/boundary-traversal-of-binary-tree/1","difficulty":"Medium"},{"title":"Maximum Path Sum","link":"https://leetcode.com/problems/binary-tree-maximum-path-sum/","difficulty":"Hard"},{"title":"Symmetric Binary Tree","link":"https://leetcode.com/problems/symmetric-tree/","difficulty":"Easy"},{"title":"Check for Symmetrical Binary Trees","link":"https://leetcode.com/problems/symmetric-tree/","difficulty":"Easy"},{"title":"Children Sum Property in Binary Tree","link":"https://www.geeksforgeeks.org/problems/children-sum-parent/1","difficulty":"Medium"}],"Binary Search Tree (BST)":[{"title":"Search in BST","link":"https://leetcode.com/problems/search-in-a-binary-search-tree/","difficulty":"Easy"},{"title":"Check if a Tree is a BST or Not","link":"https://leetcode.com/problems/validate-binary-search-tree/","difficulty":"Medium"},{"title":"LCA in BST","link":"https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/","difficulty":"Easy"}]};
+const DEFAULT_QUESTIONS = {
+  "Arrays": [
+    "Set Matrix Zeroes",
+    "Pascal's Triangle I",
+    "Kadane's Algorithm",
+    "Find the Duplicate Number",
+    "Find the Repeating and Missing Number",
+    "Majority Element-I",
+    "Majority Element-II",
+    "Two Sum",
+    "3 Sum",
+    "4 Sum",
+    "Longest Consecutive Sequence in an Array",
+    "Largest Subarray with K Sum",
+    "Remove Duplicates from Sorted Array",
+    "Maximum Consecutive Ones",
+    "Trapping Rainwater",
+    "Search in matrix",
+    "Sort an array of 0’, 1, 2"
+  ],
+  "Strings": [
+    "Longest Substring Without Repeating Characters",
+    "Reverse Every Word in a String",
+    "Longest Common Prefix",
+    "Valid Anagram"
+  ],
+  "Linked List": [
+    "Reverse a Linked List",
+    "Find Middle of Linked List",
+    "Merge Two Sorted Lists",
+    "Remove Nth Node from the Back of the Linked List",
+    "Add Two Numbers as LinkedList",
+    "Delete Node in a Linked List O(1)",
+    "Find the Intersection Point of Y Linked List",
+    "Detect a Loop in Linked List"
+  ],
+  "Greedy": [
+    "N Meetings in One Room",
+    "Minimum Number of Platforms Required for a Railway",
+    "Job Sequencing Problem",
+    "Minimum Coins",
+    "Assign Cookies"
+  ],
+  "Binary Search / Heap": [
+    "Single Element in Sorted Array",
+    "Top K Frequent Elements"
+  ],
+  "Stack / Queue": [
+    "Implement Stack using Arrays",
+    "Implement Queue using Arrays",
+    "Balanced Parenthesis",
+    "Next Greater Element",
+    "Next Smaller Element",
+    "LRU Cache",
+    "Largest Rectangle in a Histogram",
+    "Sliding Window Maximum",
+    "Stock Span Problem"
+  ],
+  "Graph": [
+    "Rotten Oranges",
+    "Clone Graph",
+    "DFS",
+    "Traversal Techniques",
+    "Detect a Cycle in Undirected Graph using DFS",
+    "Detect a Cycle in Directed Graph using DFS",
+    "Topological Sort BFS",
+    "Topological Sort DFS",
+    "Number of Islands (Grid and Graph)"
+  ],
+  "Binary Tree": [
+    "Inorder Traversal",
+    "Preorder Traversal",
+    "Postorder Traversal",
+    "Right / Left View of Binary Tree",
+    "Bottom View of Binary Tree",
+    "Top View of Binary Tree",
+    "Pre, Post, Inorder in One Traversal",
+    "Print Root to Leaf Path in Binary Tree",
+    "Level Order Traversal",
+    "Maximum Depth in Binary Tree",
+    "Diameter of Binary Tree",
+    "Check for Balanced Binary Tree",
+    "LCA in Binary Tree",
+    "Check if Two Trees are Identical or Not",
+    "Zig Zag or Spiral Traversal",
+    "Boundary Traversal",
+    "Maximum Path Sum",
+    "Symmetric Binary Tree",
+    "Check for Symmetrical Binary Trees",
+    "Children Sum Property in Binary Tree"
+  ],
+  "Binary Search Tree (BST)": [
+    "Search in BST",
+    "Check if a Tree is a BST or Not",
+    "LCA in BST"
+  ]
+};
 
 const STORAGE_KEY = "dsa-progress-v1";
 const THEME_KEY = "dsa-theme-v1";
