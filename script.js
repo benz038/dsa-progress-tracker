@@ -1678,14 +1678,9 @@ function wireActions() {
     });
   }
 
-  document.getElementById("resetBtn").addEventListener("click", () => {
-    if (!confirm("Reset all saved progress?")) return;
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(DATE_STATE_KEY);
-    scheduleCloudSync();
-    location.reload();
-  });
+  // Reset button removed from UI; reset behavior intentionally disabled.
 
+  /*
   document.getElementById("expandAllBtn").addEventListener("click", () => {
     document.querySelectorAll("details").forEach((d) => { d.open = true; });
   });
@@ -1693,6 +1688,7 @@ function wireActions() {
   document.getElementById("collapseAllBtn").addEventListener("click", () => {
     document.querySelectorAll("details").forEach((d) => { d.open = false; });
   });
+  */
 
   const addQuestionForm = document.getElementById("addQuestionForm");
   if (addQuestionForm) {

@@ -1,0 +1,31 @@
+// Copy this file to `firebase-config.js` (same folder) and fill the values
+// with your Firebase project's configuration. Do NOT commit real secrets to a
+// public repository. This file sets `window.FIREBASE_CONFIG` which the app
+// expects before initializing Firebase.
+
+// Example:
+window.FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID",
+  // measurementId: "G-XXXXXXX" // optional
+};
+
+// Instructions:
+// 1. In the Firebase console, go to Project settings -> General and copy the
+//    SDK config values into the object above.
+// 2. Enable Google sign-in: Authentication -> Sign-in method -> Google -> Enable.
+// 3. Add your local origin to authorized domains: Authentication -> Settings ->
+//    Authorized domains -> add `localhost` and any host/port you use (e.g. localhost:8000).
+// 4. Copy this file to `firebase-config.js` (which is included by index.html)
+//    and open the app via a local server (e.g. `python3 -m http.server 8000`) so
+//    the OAuth popup works correctly. Opening `index.html` directly via file://
+//    will usually break OAuth flows.
+
+// Troubleshooting:
+// - If login still fails, open DevTools Console and look for errors.
+// - Ensure the Firebase SDK scripts are loaded before this config file in index.html.
+// - If popups are blocked, allow them or try signInWithRedirect instead.
