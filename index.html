@@ -60,7 +60,9 @@
           </svg>
         </span>
       </button>
+      
       <button id="navTotalProgressBtn" class="nav-btn nav-progress-btn" title="Total progress">0%</button>
+      <button id="resetBtn" type="button" class="danger">Reset</button>
       <div class="nav-divider"></div>
       <button id="navThemeBtn" class="nav-btn" title="Toggle theme" aria-label="Toggle theme">
         <span class="nav-icon" aria-hidden="true">
@@ -69,6 +71,7 @@
           </svg>
         </span>
       </button>
+      
     </nav>
 
     <!-- Side Panel (Hidden by default) -->
@@ -170,20 +173,10 @@
           </div>
         </div>
         <div class="progress"><div id="overallBar"></div></div>
-        <div class="stats">
-          <div class="stat-card">
-            <div class="stat-label">Solved today</div>
-            <div class="stat-value" id="solvedTodayText">0</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Date-wise solved</div>
-            <div id="dateWiseList" class="date-wise-list"></div>
-          </div>
-        </div>
+
         <div class="actions">
           <button id="expandAllBtn" type="button">Expand All</button>
           <button id="collapseAllBtn" type="button">Collapse All</button>
-          <button id="resetBtn" type="button" class="danger">Reset Progress</button>
         </div>
         <datalist id="categorySuggestions"></datalist>
         <p class="note">Saved in browser local storage (persists across refreshes).</p>
