@@ -1680,15 +1680,17 @@ function wireActions() {
 
   // Reset button removed from UI; reset behavior intentionally disabled.
 
-  /*
   document.getElementById("expandAllBtn").addEventListener("click", () => {
+    // Expand the summary details and all category details
+    try { setSummaryCollapsed(false); } catch (e) {}
     document.querySelectorAll("details").forEach((d) => { d.open = true; });
   });
 
   document.getElementById("collapseAllBtn").addEventListener("click", () => {
+    // Collapse the summary details and all category details
+    try { setSummaryCollapsed(true); } catch (e) {}
     document.querySelectorAll("details").forEach((d) => { d.open = false; });
   });
-  */
 
   const addQuestionForm = document.getElementById("addQuestionForm");
   if (addQuestionForm) {
