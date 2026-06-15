@@ -1441,12 +1441,23 @@ function persistDraggedQuestionOrder(category, list) {
 function render() {
   const root = document.getElementById("categories");
   const state = loadState();
+  const sectionState = {};
+
+  root.querySelectorAll("details").forEach((details) => {
+    const titleEl = details.querySelector(".category-title");
+    const categoryName = titleEl ? titleEl.textContent.trim() : details.dataset.category;
+    if (categoryName) {
+      sectionState[categoryName] = details.open;
+    }
+  });
+
   root.innerHTML = "";
 
   for (const [category, questions] of Object.entries(renderedQuestions)) {
     const details = document.createElement("details");
+    details.dataset.category = category;
     details.className = "card";
-    details.open = true;
+    details.open = sectionState[category] !== false;
 
     const summary = document.createElement("summary");
     summary.innerHTML = `
